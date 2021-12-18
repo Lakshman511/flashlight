@@ -26,6 +26,21 @@
 #include "flashlight/lib/text/decoder/LexiconDecoder.h"
 #include "flashlight/lib/text/decoder/lm/KenLM.h"
 
+
+//<======================================== Member functions ========================================>
+void printArray(af::array arr,std::string name, bool printdata){
+  std::cout<<"Dimensions of the "<<name<<" are "<<arr.dims(0);
+  for(int i =1;i<arr.numdims();i++){
+    std::cout<<"X"<<arr.dims(i);
+  }
+  std::cout<<std::endl;
+  std::cout<<"Dim4 dimensions are : "<<arr.dims().dims[0]<<"X"<<arr.dims().dims[1]<<"X"<<arr.dims().dims[2]<<"X"<<arr.dims().dims[3]<<std::endl;
+  std::cout<<std::endl;
+  if(printdata){
+    af_print_array(arr.get());
+  }
+  std::cout<<std::endl;
+}
 DEFINE_string(
     am_path,
     "",
@@ -263,20 +278,55 @@ int main(int argc, char** argv) {
     }
     auto audioInfo = fl::pkg::speech::loadSoundInfo(audioPath.c_str());
     auto audio = fl::pkg::speech::loadSound<float>(audioPath.c_str());
+    std::cout<< "While doing inference for " << audioPath << " file\n";
+    std::cout<< "audio Info Details: channels = "<<audioInfo.channels<<" samplerate = "<<audioInfo.samplerate<<" frames = "<<audioInfo.frames<<std::endl;
+    std::cout<< "audio size = "<<audio.size()<<"frames\n";
+    std::cout<<"audio duration = "<<audioInfo.frames/audioInfo.samplerate<<std::endl;
     af::array input = inputTransform(
         static_cast<void*>(audio.data()),
         af::dim4(audioInfo.channels, audioInfo.frames),
         af::dtype::f32);
+    printArray(input,"input array ", false);
     auto inputLen = af::constant(input.dims(0), af::dim4(1));
+    printArray(inputLen, "inputLen array ", false);
     auto rawEmission = fl::pkg::runtime::forwardSequentialModuleWithPadMask(
         fl::input(input), network, inputLen);
+    printArray(rawEmission.array(), " Raw Emission array ", false);
     auto emission = fl::pkg::runtime::afToVector<float>(rawEmission);
-
+    std::cout<<"size of emission vector = "<<emission.size()<<std::endl;
+    int i =0;
+    for(auto f:emission){
+      std::cout<<f<<" ";
+      i++;
+      if(i==10)
+      break;
+    }
+    std::cout<<std::endl;
     const auto& result = decoder.decode(
         emission.data(),
         rawEmission.dims(1) /* time */,
         rawEmission.dims(0) /* ntokens */);
 
+    std::cout<<"Result size = "<<result.size()<<std::endl;
+    i = 0;
+    std::cout<<"Result vector containns....."<<std::endl;
+    for(auto f:result){
+      std::cout<<"For position "<<i<<std::endl;
+      std::cout<<"Score = "<<f.score<<" am score = "<<f.amScore<<" lmscore = "<<f.lmScore<<std::endl;
+      std::cout<<"Words size = "<<f.words.size()<<" Words are ............\n";
+      for(auto word:f.words){
+        std::cout<<word<<" ";
+      }
+      std::cout<<std::endl<<"Tokens size = "<<f.tokens.size()<<" Tokens are..........."<<std::endl;
+      for(auto token:f.tokens){
+        std::cout<<token<<" ";
+      }
+      std::cout<<std::endl;
+      i++;
+      if(i==10)
+      break;
+    }
+    std::cout<<std::endl;
     // Take top hypothesis and cleanup predictions
     auto rawWordPrediction = result[0].words;
     auto rawTokenPrediction = result[0].tokens;

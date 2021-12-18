@@ -91,18 +91,23 @@ fl::Dataset::DataTransformFunction inputFeatures(
     int featSz = 1;
     if (featureType == FeatureType::POW_SPECTRUM) {
       thread_local PowerSpectrum powspec(params);
+      std::cout<<"Using power spectrum features\n";
       featSz = params.powSpecFeatSz();
       output = powspec.batchApply(input, channels);
     } else if (featureType == FeatureType::MFSC) {
       thread_local Mfsc mfsc(params);
       featSz = params.mfscFeatSz();
+      std::cout<<featSz<<std::endl;
+      std::cout<<"Using mfsc features\n";
       output = mfsc.batchApply(input, channels);
     } else if (featureType == FeatureType::MFCC) {
       thread_local Mfcc mfcc(params);
+      std::cout<<"Using mfcc features\n";
       featSz = params.mfccFeatSz();
       output = mfcc.batchApply(input, channels);
     } else {
       // use raw audio
+      std::cout<<"Usinng raw audio\n";
       output = input; // T X CHANNELS (Col Major)
     }
 

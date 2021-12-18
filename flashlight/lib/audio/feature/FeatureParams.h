@@ -10,7 +10,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <cmath>
-
+#include<iostream>
 namespace fl {
 namespace lib {
 namespace audio {
@@ -148,6 +148,8 @@ struct FeatureParams {
   int64_t mfscFeatSz() const {
     int64_t devMultiplier =
         1 + (deltaWindow > 0 ? 1 : 0) + (accWindow > 0 ? 1 : 0);
+    std::cout<<"For mfsc features : devMultiplier = "<<devMultiplier<<" deltawindow = "<<deltaWindow<<" accWindow = "<<accWindow<<std::endl;
+    std::cout<<" nuFilterbankChans = "<<numFilterbankChans<<" useEnergy = "<<useEnergy<<std::endl;
     return (numFilterbankChans + (useEnergy ? 1 : 0)) * (devMultiplier);
   }
 
