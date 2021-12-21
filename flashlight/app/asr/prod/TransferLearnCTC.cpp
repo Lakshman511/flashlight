@@ -259,11 +259,14 @@ int main(int argc, char** argv) {
     LOG(WARNING) << "Model version " << version << " and code version "
                  << FL_APP_ASR_VERSION;
   }
+  // override params
+  // First time thes, but next time on, we may want to use origial code
+  // disabling this loop for transfer learning as the params 
   
-  if (forkingNetwork->params().size() != network->params().size()) {
-   LOG(FATAL)
-       << "Mismatch in # parameters for the model specificied by archfile and forking model.";
-  }
+  // if (forkingNetwork->params().size() != network->params().size()) {
+  //  LOG(FATAL)
+  //      << "Mismatch in # parameters for the model specificied by archfile and forking model.";
+  // }
   std::size_t num_forking_model_layers = forkingNetwork->params().size();
 
   for (int i = 0; i < num_forking_model_layers; ++i) {
@@ -273,7 +276,11 @@ int main(int argc, char** argv) {
                  << ". Expected: " << network->param(i).dims()
                  << " Got: " << forkingNetwork->param(i).dims();
     }
-    network->setParams(forkingNetwork->param(i), i);
+    if (i< num_forking_model_layers - 1) {
+      network->setParams(forkingNetwork->param(i), i);
+    } else {
+      // leave the default initialization which is KaimingUniform
+    }
   }
 
   FL_LOG_MASTER(INFO) << "[Network] " << network->prettyString();
