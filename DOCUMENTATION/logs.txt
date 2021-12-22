@@ -1,0 +1,93 @@
+Audio file name : small.wav
+Actual transcript : Three D printing
+Predicted transcript : three deep printing
+While doing inference for small.wav file
+audio Info Details: channels = 1 samplerate = 16000 frames = 20287
+audio size = 20287frames
+audio duration = 1
+For mfsc features : devMultiplier = 1 deltawindow = 0 accWindow = 0
+noFilterbankChans = 80 useEnergy = 0
+80
+Using mfsc features
+For mfsc features : devMultiplier = 1 deltawindow = 0 accWindow = 0
+ nuFilterbankChans = 80 useEnergy = 0
+Dimensions of the input array  are 125X80
+Dim4 dimensions are : 125X80X1X1
+
+
+Dimensions of the inputLen array  are 1
+Dim4 dimensions are : 1X1X1X1
+
+
+Dimensions of the  Raw Emission array  are 29X42
+Dim4 dimensions are : 29X42X1X1
+
+
+size of emission vector = 1218
+-1.13713 -4.16794 1.92019 -2.01842 -4.8508 1.1285 -0.198215 -1.48589 -3.3238 0.370445 
+Result size = 34
+Result vector containns.....
+For position 0
+Score = 594.206 am score = 614.495 lmscore = -13.5264
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 78216 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 38293 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 17 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 1
+Score = 589.348 am score = 611.677 lmscore = -14.886
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 78216 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 45730 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 17 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 20 1 1 1 1 1 1 1 
+For position 2
+Score = 588.257 am score = 610.282 lmscore = -14.683
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 67177 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 38293 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 28 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 3
+Score = 586.122 am score = 609.804 lmscore = -15.7881
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 79533 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 38293 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 28 28 6 28 17 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 4
+Score = 585.512 am score = 605.59 lmscore = -13.3852
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 26741 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 38293 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 28 28 6 28 28 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 5
+Score = 585.414 am score = 607.577 lmscore = -14.775
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 78216 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 188802 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 17 1 28 28 19 6 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 6
+Score = 584.425 am score = 607.463 lmscore = -15.359
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 67177 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 45730 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 28 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 20 1 1 1 1 1 1 1 
+For position 7
+Score = 583.434 am score = 605.842 lmscore = -14.9387
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 78216 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 145192 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 17 1 28 28 9 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 8
+Score = 583.378 am score = 606.095 lmscore = -15.1447
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 78216 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 15837 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 6 28 6 28 17 1 24 28 19 10 15 15 28 21 28 10 28 15 8 28 28 1 1 1 1 1 1 1 
+For position 9
+Score = 582.29 am score = 606.986 lmscore = -16.464
+Words size = 44 Words are ............
+-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 137682 -1 -1 -1 -1 -1 -1 -1 -1 79533 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 45730 -1 -1 -1 -1 -1 -1 
+Tokens size = 44 Tokens are...........
+1 28 28 21 9 9 19 6 28 28 6 28 1 1 5 28 28 28 6 28 17 1 17 28 19 10 15 15 28 21 28 10 28 15 8 28 20 1 1 1 1 1 1 1 
+
+I20211218 12:09:46.003113 11175 InferenceCTC.cpp:347] [Inference tutorial for CTC]: predicted output for small.wav
+three deep printing
+I20211218 12:09:46.003149 11175 InferenceCTC.cpp:261] [Inference tutorial for CTC]: Waiting the input in the format [audio_path].

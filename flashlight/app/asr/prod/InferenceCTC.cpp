@@ -313,13 +313,14 @@ int main(int argc, char** argv) {
     for(auto f:result){
       std::cout<<"For position "<<i<<std::endl;
       std::cout<<"Score = "<<f.score<<" am score = "<<f.amScore<<" lmscore = "<<f.lmScore<<std::endl;
-      std::cout<<"Words size = "<<f.words.size()<<" Words are ............\n";
-      for(auto word:f.words){
-        std::cout<<word<<" ";
-      }
+      // std::cout<<"Words size = "<<f.words.size()<<" Words are ............\n";
+      // for(auto word:f.words){
+      //   std::cout<<word<<" ";
+      // }
       std::cout<<std::endl<<"Tokens size = "<<f.tokens.size()<<" Tokens are..........."<<std::endl;
       for(auto token:f.tokens){
-        std::cout<<token<<" ";
+        if(tokenDict.getEntry(token)!="#")
+        std::cout<<tokenDict.getEntry(token)<<" ";
       }
       std::cout<<std::endl;
       i++;

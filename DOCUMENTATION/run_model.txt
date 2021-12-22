@@ -1,0 +1,60 @@
+To run the model we first need to build the flashlight.
+This can be done in 3 ways:
+    1. Building from source using vcpkg
+    2. Buildinng source from source
+    3. Building using docker
+    4. Installing with vcpkg
+
+We first used third approach. It worked fine, but the problem with that approach was : 
+It was taking around 10 minutes to build the docker image even 
+for small change made to any file.
+ 
+As we are exploring the flashlight library and understanding we want this building 
+process to be as quick as possible. So that we can make small changes and build and see the changes on the fly.
+
+To build the flashlight from source locally we need to make sure that all dependencies are installed on our machine. 
+You can see the dependencies on flashlight github page.
+Some of the dependencies were already installed. 
+So we used the steps mentioned in build.txt file to build flashlight on our machine. 
+
+We created a folder called prod (production) to do our experiments. 
+And added InferenceCTC.cpp and FinetuneCTC.cpp to this folder.
+
+To make our build generates the executables for these newly added files
+    * add_executable(fl_asr_inference_ctc ${CMAKE_CURRENT_LIST_DIR}/prod/InferenceCTC.cpp)
+    * target_link_libraries(
+        fl_asr_inference_ctc
+        fl_pkg_speech
+        fl_pkg_runtime
+        ${CMAKE_DL_LIBS})
+    * set_executable_output_directory(fl_asr_inference_ctc "${FL_BUILD_BINARY_OUTPUT_DIR}/asr")
+the above three lines were added to the CMakeLists.txt in flashlight/flashlight/app directory.
+
+then opening termial in flashlight/flashlight/build directory 
+    make -j8
+running the above command build and generates all executables......
+
+After successfully building the flashlight locally
+It is taking approximately 40 seconds to build flashlight again after applying small changes
+The reason is we usually don't change many files. and binnaries need not to be built for everything...
+BAAAAAAAAAAAM  building time reduced from 10 minutes to 40 seconds
+
+
+
+
+Now to run the model file 
+1. Add the path of binaries of InferenceCTC to PATH variable using
+    PATH=$PATH:/path_to_flashlight/flashlght/build/bin/asr/
+    PATH=$PATH:/path_to_flashlight/flashlght/build/bin/lm/ 
+2. Create a directory called with any name and preferred name is models :)
+    we created models directory in flashlight/flashlight/app folder however we can create theis folder anywhere we want 
+3. Go to models folder and download the acoustic model and language models there 
+    we followed this approach 
+    1. Create download.sh - a boilerplate file to download the necessary files 
+    2. Add the execution pero=missions to it using "chmod +x download.sh" command 
+    3. Now execute this file using "./download.sh"
+    That's it. All the files will be downloaded.
+4. Open terminal in models folder and  run the below command to run the inference
+fl_asr_inference_ctc --am_path=am_transformer_ctc_stride3_letters_300Mparams.bin --tokens_path=tokens.txt --lexicon_path=lexicon.txt --lm_path=lm_common_crawl_small_4gram_prun0-6-15_200kvocab.bin --logtostderr=true --sample_rate=16000 --beam_size=50 --beam_size_token=30 --beam_threshold=100 --lm_weight=1.5 --word_score=0
+
+

@@ -1,0 +1,105 @@
+
+INSTALL ARRAYFIRE -NO
+sudo add-apt-repository "deb https://repo.arrayfire.com/ubuntu focal main"
+sudo apt install arrayfire-dev
+sudo apt install arrayfire
+
+BUILD ARRAYFIRE From Source-YES
+git clone --recursive https://github.com/arrayfire/arrayfire.git
+cd /path/to/dir/arrayfire
+mkdir build && cd build
+cmake .. -DCMAKE_C_COMPILER=$(which gcc-8) -DCMAKE_CXX_COMPILER=$(which g++-8) -DCMAKE_BUILD_TYPE=Release
+make -j8   # or number of threads of your choosing
+#cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install/dir
+sudo make install
+
+cmake -DCMAKE_HOST_COMPILER=$(which gcc-8) ..
+
+INSTALL CUDA
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+wget https://developer.download.nvidia.com/compute/cuda/11.5.1/local_installers/cuda-repo-ubuntu2004-11-5-local_11.5.1-495.29.05-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu2004-11-5-local_11.5.1-495.29.05-1_amd64.deb
+sudo apt-key add /var/cuda-repo-ubuntu2004-11-5-local/7fa2af80.pub
+sudo apt-get update
+sudo apt-get -y install cuda
+
+INSTALL CUDNN
+https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html
+
+wget https://developer.nvidia.com/compute/cudnn/secure/8.3.1/local_installers/11.5/cudnn-local-repo-ubuntu2004-8.3.1.22_1.0-1_amd64.deb
+sudo dpkg -i cudnn-local-repo-ubuntu2004-8.3.1.22_1.0-1_amd64.deb
+sudo apt-key add /var/cudnn-local-repo-*/7fa2af80.pub
+sudo apt-get update
+sudo apt-get install libcudnn8=8.3.1.22-1+cuda11.5
+sudo apt-get install libcudnn8-dev=8.3.1.22-1+cuda11.5
+
+
+INSTALL NCCL
+https://docs.nvidia.com/deeplearning/nccl/install-guide/index.html
+
+sudo dpkg -i nccl-local-repo-ubuntu2004-2.11.4-cuda11.5_1.0-1_amd64.deb
+sudo apt-key add /var/nccl-local-repo-*/7fa2af80.pub
+sudo apt-get update
+sudo apt install libnccl2 libnccl-dev
+
+upgrade cmake to latest version
+https://graspingtech.com/upgrade-cmake/
+TO INSTALL MKL
+
+cd /tmp
+wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+export MKLROOT=/opt/intel/oneapi/mkl/latest
+sudo apt install intel-basekit
+
+
+INSTALL FFT
+sudo apt-get install libfftw3-dev
+
+
+INSTALL glog - google logging
+git clone https://github.com/google/glog.git
+cd glog
+
+cmake -S . -B build -G "Unix Makefiles"
+cmake --build build
+cmake --build build --target install
+
+Install gflags
+sudo apt-get install libgflags-dev
+
+Install google  test
+git clone https://github.com/google/googletest.git
+cd googletest
+mkdir build && cd build
+cmake ..
+sudo make install -j10
+
+Setting MKLROOT environment variable
+export MKLROOT=/opt/intel/oneapi/mkl/latest 
+
+
+cmake .. -DCMAKE_BUILD_TYPE=Release -DFL_BACKEND=CUDA -DFL_BUILD_ALL_APPS=ON
+make -j$(nproc)
+make install
+
+
+cmake .. -D CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda-11  -DCMAKE_BUILD_TYPE=Release \
+                         -DFL_BACKEND=CUDA \
+                         -DFL_BUILD_LIB_COMMON=ON \
+                         -DFL_BUILD_CORE=ON \
+                         -DFL_BUILD_PKG_TEXT=ON \
+                         -DFL_BUILD_PKG_RUNTIME=ON \
+                         -DFL_BUILD_LIB_SEQUENCE=ON \
+                         -DFL_BUILD_LIB_TEXT=ON \
+                         -DFL_BUILD_LIB_AUDIO=ON \
+                         -DFL_BUILD_PKG_SPEECH=ON \
+                         -DFL_BUILD_APP_ASR=ON \
+                         -DFL_BUILD_APP_LM=ON \
+                         -DFL_BUILD_APP_ASR_TOOLS=ON \
+                         -DFL_BUILD_ALL_APPS=OFF
+                         
+                   
