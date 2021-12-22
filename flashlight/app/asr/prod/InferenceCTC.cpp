@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
     printArray(inputLen, "inputLen array ", false);
     auto rawEmission = fl::pkg::runtime::forwardSequentialModuleWithPadMask(
         fl::input(input), network, inputLen);
-    printArray(rawEmission.array(), " Raw Emission array ", false);
+    printArray(rawEmission.array(), " Raw Emission array ", true);
     auto emission = fl::pkg::runtime::afToVector<float>(rawEmission);
     std::cout<<"size of emission vector = "<<emission.size()<<std::endl;
     int i =0;
