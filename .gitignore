@@ -4,6 +4,8 @@ release
 debug
 *.so
 
+models/ 
+
 # FB
 fb
 TARGETS
