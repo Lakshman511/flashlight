@@ -3,6 +3,7 @@ build
 release
 debug
 *.so
+.vscode
 
 models/
 

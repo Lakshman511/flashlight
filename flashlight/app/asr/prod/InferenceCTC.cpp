@@ -27,6 +27,15 @@
 #include "flashlight/lib/text/decoder/LexiconDecoder.h"
 #include "flashlight/lib/text/decoder/lm/KenLM.h"
 
+// #include "flashlight/app/asr/runtime/runtime.h"
+// #include "flashlight/app/asr/tools/alignment/Utils.h"
+// #include "flashlight/fl/flashlight.h"
+// #include "flashlight/lib/common/System.h"
+// #include "flashlight/lib/text/dictionary/Defines.h"
+// #include "flashlight/lib/text/dictionary/Dictionary.h"
+
+
+
 
 //<======================================== Member functions ========================================>
 void printArray(af::array arr,std::string name, bool printdata){
@@ -339,7 +348,23 @@ int main(int argc, char** argv) {
     auto rawWordPrediction = result[0].words;
     auto rawTokenPrediction = result[0].tokens;
 
-    auto target = af::array(rawTokenPrediction.size(), 1, rawTokenPrediction.data());
+    // ************* Target generation and Alignment******************
+
+    // fl::app::asr::TargetGenerationConfig targetGenConfig(
+    //   FLAGS_wordseparator, //std::atoll(networkFlags["framesizems"].c_str()),
+    //   FLAGS_sampletarget,
+    //   FLAGS_criterion,
+    //   FLAGS_surround,
+    //   isSeq2seqCrit,
+    //   FLAGS_replabel,
+    //   true /* skip unk */,
+    //   FLAGS_usewordpiece /* fallback2LetterWordSepLeft */,
+    //   !FLAGS_usewordpiece /* fallback2LetterWordSepLeft */);
+
+    // auto targetTransform = fl::app::asr::targetFeatures(tokenDict, lexicon, targetGenConfig);
+    // auto wordTransform = fl::app::asr::wordFeatures(wordDict);
+
+    
 
     auto tokenPrediction = fl::app::asr::tknPrediction2Ltr(
         rawTokenPrediction,
@@ -354,6 +379,21 @@ int main(int argc, char** argv) {
         fl::app::asr::validateIdx(rawWordPrediction, unkWordIdx);
     auto wordPrediction = fl::app::asr::wrdIdx2Wrd(rawWordPrediction, wordDict);
     auto wordPredictionStr = fl::lib::join(" ", wordPrediction);
+
+    
+    std::string hardcodedoutput = "hello world";//"this is a test";
+    std::vector<int> targetvec(hardcodedoutput.size()+1);
+    for(i=0; i<hardcodedoutput.size(); i++) {
+      char ch = hardcodedoutput.at(i);
+      if (ch==' ') ch = '|';
+      targetvec[i] = tokenDict.getIndex(std::string(1, ch));
+    }
+    targetvec[i] = tokenDict.getIndex("|");
+
+    auto target = af::array(targetvec.size(), 1, targetvec.data());
+    std::cout << "target Dims " << target.dims(0) << " X " << target.dims(1) << " X " << target.dims(2) << " X " << target.dims(3) << " X " << std::endl;
+
+    
     LOG(INFO) << "[Inference tutorial for CTC]: predicted output for "
               << audioPath << "\n"
               << wordPredictionStr;
@@ -395,6 +435,7 @@ int main(int argc, char** argv) {
     const int T = paths.dims(0);
     std::cout << "Paths dims = " << B << "x" << T << std::endl;
     std::vector<std::vector<std::string>> batchTokensPath;
+    float score = 0;
     for (int b = 0; b < B; b++) {
       std::vector<std::string> tokens;
       for (int t = 0; t < T; t++) {
@@ -404,9 +445,10 @@ int main(int argc, char** argv) {
         }
         auto token = tokenDict.getEntry(p);
         tokens.push_back(token);
-        std::cout << p << " ";
+        std::cout << t << ": " << token << std::endl;
+        if(p!=28 && p!=1) score += probs[p][t];
       }
-      std::cout << std::endl;
+      std::cout << "SCORE = " << score << std::endl;
       batchTokensPath.push_back(tokens);
     }
   }
