@@ -13,19 +13,19 @@
 #include <glog/logging.h>
 #include "flashlight/fl/flashlight.h"
 
-#include "flashlight/pkg/speech/common/Defines.h"
-#include "flashlight/pkg/speech/data/FeatureTransforms.h"
-#include "flashlight/pkg/speech/data/Sound.h"
-#include "flashlight/pkg/speech/data/Utils.h"
-#include "flashlight/pkg/speech/decoder/DecodeUtils.h"
-#include "flashlight/pkg/speech/decoder/Defines.h"
-#include "flashlight/pkg/speech/decoder/TranscriptionUtils.h"
-#include "flashlight/pkg/runtime/common/DistributedUtils.h"
-#include "flashlight/pkg/runtime/common/SequentialBuilder.h"
-#include "flashlight/pkg/runtime/common/Serializer.h"
+#include "flashlight/app/asr/common/Defines.h"
+#include "flashlight/app/asr/criterion/criterion.h"
+#include "flashlight/app/asr/data/FeatureTransforms.h"
+#include "flashlight/app/asr/data/Sound.h"
+#include "flashlight/app/asr/data/Utils.h"
+#include "flashlight/app/asr/decoder/DecodeUtils.h"
+#include "flashlight/app/asr/decoder/Defines.h"
+#include "flashlight/app/asr/decoder/TranscriptionUtils.h"
+#include "flashlight/ext/common/DistributedUtils.h"
+#include "flashlight/ext/common/SequentialBuilder.h"
+#include "flashlight/ext/common/Serializer.h"
 #include "flashlight/lib/text/decoder/LexiconDecoder.h"
 #include "flashlight/lib/text/decoder/lm/KenLM.h"
-#include "flashlight/pkg/speech/criterion/criterion.h"
 
 
 //<======================================== Member functions ========================================>
@@ -42,6 +42,7 @@ void printArray(af::array arr,std::string name, bool printdata){
   }
   std::cout<<std::endl;
 }
+
 DEFINE_string(
     am_path,
     "",
@@ -98,32 +99,25 @@ void serializeAndCheckFlags() {
 
 void loadModel(
     std::shared_ptr<fl::Module>& network,
-    std::unordered_map<std::string, std::string>& networkFlags, 
-    std::shared_ptr<fl::pkg::speech::SequenceCriterion>& criterion) {
+    std::unordered_map<std::string, std::string>& networkFlags,
+    std::shared_ptr<fl::app::asr::SequenceCriterion>& criterion) {
   std::unordered_map<std::string, std::string> cfg;
   std::string version;
 
   LOG(INFO) << "[Inference tutorial for CTC] Reading acoustic model from "
             << FLAGS_am_path;
   fl::setDevice(0);
-  /*
-  Adding criterion as last parameter to load below leads to an error:
-  Error while loading "am_transformer_ctc_stride3_letters_300Mparams.bin": Trying to load an unregistered polymorphic type (fl::app::asr::ConnectionistTemporalClassificationCriterion).
-  Because saved model has old path
-  */
-  fl::pkg::runtime::Serializer::load(FLAGS_am_path, version, cfg, network);
-  criterion = (std::shared_ptr<fl::pkg::speech::SequenceCriterion>)(new fl::pkg::speech::ConnectionistTemporalClassificationCriterion());
-
+  fl::ext::Serializer::load(FLAGS_am_path, version, cfg, network, criterion);
   if (version != FL_APP_ASR_VERSION) {
     LOG(WARNING) << "[Inference tutorial for CTC] Acostuc model version "
                  << version << " and code version " << FL_APP_ASR_VERSION;
   }
-  if (cfg.find(fl::pkg::speech::kGflags) == cfg.end()) {
+  if (cfg.find(fl::app::asr::kGflags) == cfg.end()) {
     LOG(FATAL)
         << "[Inference tutorial for CTC] Invalid config is loaded from acoustic model"
         << FLAGS_am_path;
   }
-  for (auto line : fl::lib::split("\n", cfg[fl::pkg::speech::kGflags])) {
+  for (auto line : fl::lib::split("\n", cfg[fl::app::asr::kGflags])) {
     if (line == "") {
       continue;
     }
@@ -133,13 +127,14 @@ void loadModel(
       networkFlags[key] = res[1];
     }
   }
-  if (networkFlags["criterion"] != fl::pkg::speech::kCtcCriterion) {
+  if (networkFlags["criterion"] != fl::app::asr::kCtcCriterion) {
     LOG(FATAL)
         << "[Inference tutorial for CTC]: provided model is trained not with CTC, but with "
         << networkFlags["criterion"]
         << ". This type is not supported in the tutorial";
   }
 }
+
 
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
@@ -159,15 +154,15 @@ int main(int argc, char** argv) {
   /* ===================== Create Network ===================== */
   std::shared_ptr<fl::Module> network;
   std::unordered_map<std::string, std::string> networkFlags;
-  std::shared_ptr<fl::pkg::speech::SequenceCriterion> criterion;
+  std::shared_ptr<fl::app::asr::SequenceCriterion> criterion;
   loadModel(network, networkFlags, criterion);
   network->eval();
   criterion->eval();
   LOG(INFO) << "[Inference tutorial for CTC] Network is loaded.";
   /* ===================== Set All Dictionaries ===================== */
   fl::lib::text::Dictionary tokenDict(FLAGS_tokens_path);
-  tokenDict.addEntry(fl::pkg::speech::kBlankToken);
-  int blankIdx = tokenDict.getIndex(fl::pkg::speech::kBlankToken);
+  tokenDict.addEntry(fl::app::asr::kBlankToken);
+  int blankIdx = tokenDict.getIndex(fl::app::asr::kBlankToken);
   int wordSepIdx = networkFlags["wordseparator"] == ""
       ? -1
       : tokenDict.getIndex(networkFlags["wordseparator"]);
@@ -190,7 +185,7 @@ int main(int argc, char** argv) {
         << "Failed to load kenlm LM: " << FLAGS_lm_path;
   }
   LOG(INFO) << "[Inference tutorial for CTC] Language model is constructed.";
-  std::shared_ptr<fl::lib::text::Trie> trie = fl::pkg::speech::buildTrie(
+  std::shared_ptr<fl::lib::text::Trie> trie = fl::app::asr::buildTrie(
       "wrd" /* decoderType */,
       true /* useLexicon */,
       lm,
@@ -229,31 +224,31 @@ int main(int argc, char** argv) {
       std::atoll(networkFlags["lowfreqfilterbank"].c_str()),
       std::atoll(networkFlags["highfreqfilterbank"].c_str()),
       std::atoll(networkFlags["mfcccoeffs"].c_str()),
-      fl::pkg::speech::kLifterParam /* lifterparam */,
+      fl::app::asr::kLifterParam /* lifterparam */,
       std::atoll(networkFlags["devwin"].c_str()) /* delta window */,
       std::atoll(networkFlags["devwin"].c_str()) /* delta-delta window */);
   featParams.useEnergy = false;
   featParams.usePower = false;
   featParams.zeroMeanFrame = false;
-  fl::pkg::speech::FeatureType featType;
+  fl::app::asr::FeatureType featType;
   if (networkFlags.find("features_type") != networkFlags.end()) {
-    featType = fl::pkg::speech::getFeatureType(
+    featType = fl::app::asr::getFeatureType(
                    networkFlags["features_type"], 1, featParams)
                    .second;
   } else {
     // old models TODO remove as per @avidov converting scirpt
     if (networkFlags["pow"] == "true") {
-      featType = fl::pkg::speech::FeatureType::POW_SPECTRUM;
+      featType = fl::app::asr::FeatureType::POW_SPECTRUM;
     } else if (networkFlags["mfsc"] == "true") {
-      featType = fl::pkg::speech::FeatureType::MFSC;
+      featType = fl::app::asr::FeatureType::MFSC;
     } else if (networkFlags["mfcc"] == "true") {
-      featType = fl::pkg::speech::FeatureType::MFCC;
+      featType = fl::app::asr::FeatureType::MFCC;
     } else {
       // raw wave
-      featType = fl::pkg::speech::FeatureType::NONE;
+      featType = fl::app::asr::FeatureType::NONE;
     }
   }
-  auto inputTransform = fl::pkg::speech::inputFeatures(
+  auto inputTransform = fl::app::asr::inputFeatures(
       featParams,
       featType,
       {networkFlags["localnrmlleftctx"] == "true",
@@ -287,8 +282,8 @@ int main(int argc, char** argv) {
                 << "' doesn't exist, please provide valid audio path";
       continue;
     }
-    auto audioInfo = fl::pkg::speech::loadSoundInfo(audioPath.c_str());
-    auto audio = fl::pkg::speech::loadSound<float>(audioPath.c_str());
+    auto audioInfo = fl::app::asr::loadSoundInfo(audioPath.c_str());
+    auto audio = fl::app::asr::loadSound<float>(audioPath.c_str());
     std::cout<< "While doing inference for " << audioPath << " file\n";
     std::cout<< "audio Info Details: channels = "<<audioInfo.channels<<" samplerate = "<<audioInfo.samplerate<<" frames = "<<audioInfo.frames<<std::endl;
     std::cout<< "audio size = "<<audio.size()<<"frames\n";
@@ -300,10 +295,10 @@ int main(int argc, char** argv) {
     printArray(input,"input array ", false);
     auto inputLen = af::constant(input.dims(0), af::dim4(1));
     printArray(inputLen, "inputLen array ", false);
-    auto rawEmission = fl::pkg::runtime::forwardSequentialModuleWithPadMask(
+    auto rawEmission = fl::ext::forwardSequentialModuleWithPadMask(
         fl::input(input), network, inputLen);
     printArray(rawEmission.array(), " Raw Emission array ", true);
-    auto emission = fl::pkg::runtime::afToVector<float>(rawEmission);
+    auto emission = fl::ext::afToVector<float>(rawEmission);
     std::cout<<"size of emission vector = "<<emission.size()<<std::endl;
     int i=0, j;
     for(auto f:emission){
@@ -317,6 +312,7 @@ int main(int argc, char** argv) {
         emission.data(),
         rawEmission.dims(1) /* time */,
         rawEmission.dims(0) /* ntokens */);
+
 
     std::cout<<"Result size = "<<result.size()<<std::endl;
     i = 0;
@@ -345,18 +341,18 @@ int main(int argc, char** argv) {
 
     auto target = af::array(rawTokenPrediction.size(), 1, rawTokenPrediction.data());
 
-    auto tokenPrediction = fl::pkg::speech::tknPrediction2Ltr(
+    auto tokenPrediction = fl::app::asr::tknPrediction2Ltr(
         rawTokenPrediction,
         tokenDict,
-        fl::pkg::speech::kCtcCriterion,
+        fl::app::asr::kCtcCriterion,
         networkFlags["surround"],
         false /* eostoken */,
         0 /* replabel */,
         false /* usewordpiece */,
         networkFlags["wordseparator"]);
     rawWordPrediction =
-        fl::pkg::speech::validateIdx(rawWordPrediction, unkWordIdx);
-    auto wordPrediction = fl::pkg::speech::wrdIdx2Wrd(rawWordPrediction, wordDict);
+        fl::app::asr::validateIdx(rawWordPrediction, unkWordIdx);
+    auto wordPrediction = fl::app::asr::wrdIdx2Wrd(rawWordPrediction, wordDict);
     auto wordPredictionStr = fl::lib::join(" ", wordPrediction);
     LOG(INFO) << "[Inference tutorial for CTC]: predicted output for "
               << audioPath << "\n"
