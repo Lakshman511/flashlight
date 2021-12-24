@@ -1,0 +1,3 @@
+[submodule "jsonbuilder"]
+	path = jsonbuilder
+	url = https://github.com/microsoft/jsonbuilder.git

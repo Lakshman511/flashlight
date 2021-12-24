@@ -40,6 +40,10 @@ install(TARGETS fl_asr_decode RUNTIME DESTINATION ${FL_INSTALL_BIN_DIR})
 add_executable(fl_asr_tutorial_inference_ctc ${CMAKE_CURRENT_LIST_DIR}/tutorial/InferenceCTC.cpp)
 add_executable(fl_asr_tutorial_finetune_ctc ${CMAKE_CURRENT_LIST_DIR}/tutorial/FinetuneCTC.cpp)
 add_executable(fl_asr_inference_ctc ${CMAKE_CURRENT_LIST_DIR}/prod/InferenceCTC.cpp)
+
+target_link_libraries(fl_asr_tutorial_inference_ctc flashlight-app-asr ${CMAKE_DL_LIBS})
+target_link_libraries(fl_asr_tutorial_finetune_ctc flashlight-app-asr ${CMAKE_DL_LIBS})
+target_link_libraries(fl_asr_inference_ctc flashlight-app-asr ${CMAKE_DL_LIBS} jsonbuilder)
 add_executable(fl_asr_transferlearn_ctc ${CMAKE_CURRENT_LIST_DIR}/prod/TransferLearnCTC.cpp)
 
 target_link_libraries(

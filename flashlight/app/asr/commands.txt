@@ -1,0 +1,27 @@
+mkdir models
+cd models
+
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_transformer_ctc_stride3_letters_300Mparams.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_conformer_ctc_stride3_letters_25Mparams.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/tokens.txt
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/lexicon.txt
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/lm_common_crawl_small_4gram_prun0-6-15_200kvocab.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_transformer_ctc_stride3_letters_70Mparams.bin -O model.bin # acoustic model
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_transformer_ctc_stride3_letters_70Mparams.arch -O arch.txt # model architecture file
+
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/ami_limited_supervision.tar.gz -O ami_limited_supervision.tar.gz
+tar -xf ami_limited_supervision.tar.gz 
+
+mkdir audio
+cd audio
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0000.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0001.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0002.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0003.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0004.flac
+
+export PATH=$PATH:~/temp/flashlight/build/bin/asr:~/temp/flashlight/build/bin/lm
+
+fl_asr_inference_ctc --am_path=am_transformer_ctc_stride3_letters_300Mparams.bin --tokens_path=tokens.txt --lexicon_path=lexicon.txt --lm_path=lm_common_crawl_small_4gram_prun0-6-15_200kvocab.bin --logtostderr=true --sample_rate=16000 --beam_size=50 --beam_size_token=30 --beam_threshold=100 --lm_weight=1.5 --word_score=0
+
+fl_asr_align result.align --am=am_transformer_ctc_stride3_letters_300Mparams.bin --tokens=tokens.txt  --lexicon=lexicon.txt  --test=align.lst

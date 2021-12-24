@@ -191,15 +191,47 @@ int main(int argc, char** argv) {
   fl::TimeMeter fwdMtr;
   fl::TimeMeter parseMtr;
 
-  for (auto& sample : *ds) {
+  int idx = 0;
+  for (auto& sample : *ds) { //sample {input, target, words, sampleIdx, samplePath, sampleDuration, sampleTargetSize};
     fwdMtr.resume();
+    idx++;
+    std::cout << "***********************\nsampleID  " << idx << "inputid = " << kInputIdx << " targetID = " << kTargetIdx << std::endl;
+
     const auto input = fl::input(sample[kInputIdx]);
     fl::Variable rawEmission = fl::pkg::runtime::forwardSequentialModuleWithPadMask(
         input, network, sample[kDurationIdx]);
     fwdMtr.stop();
     alignMtr.resume();
+    std::cout << "Emission Dims " << rawEmission.dims(0) << " X " << rawEmission.dims(1) << " X " << rawEmission.dims(2) << " X " << rawEmission.dims(3) << " X " << std::endl;
+    std::cout << "Target Dims " << sample[kTargetIdx].dims(0) << " X " << sample[kTargetIdx].dims(1) << " X " << sample[kTargetIdx].dims(2) << " X " << sample[kTargetIdx].dims(3) << " X " << std::endl;
+    std::cout << "Words Dims " << sample[2].dims(0) << " X " << sample[2].dims(1) << " X " << sample[2].dims(2) << " X " << sample[2].dims(3) << " X " << std::endl;
+
+    af_print_array(sample[kTargetIdx].get());
+
     auto bestPaths = criterion->viterbiPathWithTarget(
         rawEmission.array(), sample[kTargetIdx]);
+
+    std::cout << "paths Dims" << bestPaths.dims(0) << " X " << bestPaths.dims(1) << " X " << bestPaths.dims(2) << " X " << bestPaths.dims(3) << " X " << std::endl;
+    
+    const int B = bestPaths.dims(1);
+    const int T = bestPaths.dims(0);
+    std::cout << "Paths dims = " << B << " X " << T << std::endl;
+    std::vector<std::vector<std::string>> batchTokensPath;
+    for (int b = 0; b < B; b++) {
+      std::vector<std::string> tokens;
+      for (int t = 0; t < T; t++) {
+        int p = bestPaths(t, b).scalar<int>();
+        if (p == -1) {
+          break;
+        }
+        auto token = tokenDict.getEntry(p);
+        tokens.push_back(token);
+        std::cout << p << ":" << token << " ";
+      }
+      std::cout << std::endl;
+      batchTokensPath.push_back(tokens);
+    }
+
     alignMtr.stop();
     parseMtr.resume();
 

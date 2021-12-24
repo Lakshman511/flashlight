@@ -71,6 +71,7 @@ else ()
   message(FATAL_ERROR "Invalid FL_BACKEND specified")
 endif ()
 
+add_subdirectory(jsonbuilder)
 # Profiling
 # TODO: for now, profiling is only enabled with the CUDA backend -
 # can enable other profiling once an implementation is in place

@@ -7,6 +7,9 @@ build
 release
 debug
 *.so
+.vscode
+
+models/
 
 # FB
 fb
