@@ -50,6 +50,7 @@ if (FL_BUILD_APP_ASR)
     message(FATAL_ERROR "FL_BUILD_DISTRIBUTED must be enabled to build speech recognition")
   endif()
   set(FL_APP_ASR_ROOT_DIR ${FL_APPS_DIR}/asr)
+  
   include(${FL_APP_ASR_ROOT_DIR}/CMakeLists.txt)
   set(INSTALLABLE_TARGETS ${INSTALLABLE_TARGETS} flashlight-app-asr)
   setup_install_headers(${FL_APP_ASR_ROOT_DIR} ${FL_INSTALL_INC_DIR_HEADER_LOC}/app)
@@ -106,3 +107,4 @@ if (FL_BUILD_ALL_APPS)
   set(INSTALLABLE_TARGETS ${INSTALLABLE_TARGETS} flashlight-app-benchmark)
   setup_install_headers(${FL_APP_BENCHMARK_ROOT_DIR} ${FL_INSTALL_INC_DIR_HEADER_LOC}/app)
 endif()
+
