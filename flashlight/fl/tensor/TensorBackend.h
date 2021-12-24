@@ -1,11 +1,15 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
 #pragma once
+
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 #include "flashlight/fl/tensor/TensorBase.h"
 
@@ -44,35 +48,44 @@ class TensorBackend {
    * For operator documentation and expected behavior, see TensorBase.h.
    */
   /******************** Tensor Creation Functions ********************/
-#define FL_FULL_FUN_BACKEND_DEF(TYPE) \
+#define FL_CREATE_FUN_LITERAL_BACKEND_DECL(TYPE)               \
+  virtual Tensor fromScalar(TYPE value, const dtype type) = 0; \
   virtual Tensor full(const Shape& dims, TYPE value, const dtype type) = 0;
-  FL_FULL_FUN_BACKEND_DEF(const double&);
-  FL_FULL_FUN_BACKEND_DEF(const float&);
-  FL_FULL_FUN_BACKEND_DEF(const int&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned&);
-  FL_FULL_FUN_BACKEND_DEF(const char&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned char&);
-  FL_FULL_FUN_BACKEND_DEF(const long&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned long&);
-  FL_FULL_FUN_BACKEND_DEF(const long long&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned long long&);
-  FL_FULL_FUN_BACKEND_DEF(const bool&);
-  FL_FULL_FUN_BACKEND_DEF(const short&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned short&);
-#undef FL_FULL_FUN_BACKEND_DEF
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const double&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const float&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const int&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const unsigned&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const char&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const unsigned char&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const long&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const unsigned long&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const long long&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const unsigned long long&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const bool&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const short&);
+  FL_CREATE_FUN_LITERAL_BACKEND_DECL(const unsigned short&);
+#undef FL_CREATE_FUN_LITERAL_BACKEND_DECL
 
   virtual Tensor identity(const Dim dim, const dtype type) = 0;
+  virtual Tensor
+  arange(const Shape& shape, const Dim seqDim, const dtype type) = 0;
+  virtual Tensor
+  iota(const Shape& dims, const Shape& tileDims, const dtype type) = 0;
 
   /************************ Shaping and Indexing *************************/
   virtual Tensor reshape(const Tensor& tensor, const Shape& shape) = 0;
   virtual Tensor transpose(
       const Tensor& tensor,
-      const Shape& dims /* = {} */) = 0;
+      const Shape& axes /* = {} */) = 0;
   virtual Tensor tile(const Tensor& tensor, const Shape& shape) = 0;
   virtual Tensor concatenate(
       const std::vector<Tensor>& tensors,
       unsigned axis) = 0;
   virtual Tensor nonzero(const Tensor& tensor) = 0;
+  virtual Tensor pad(
+      const Tensor& input,
+      const std::vector<std::pair<int, int>>& padWidths,
+      const PadType type) = 0;
 
   /************************** Unary Operators ***************************/
   virtual Tensor exp(const Tensor& tensor) = 0;
@@ -86,12 +99,31 @@ class TensorBackend {
   virtual Tensor tanh(const Tensor& tensor) = 0;
   virtual Tensor floor(const Tensor& tensor) = 0;
   virtual Tensor ceil(const Tensor& tensor) = 0;
+  virtual Tensor rint(const Tensor& tensor) = 0;
   virtual Tensor absolute(const Tensor& tensor) = 0;
+  virtual Tensor sigmoid(const Tensor& tensor) = 0;
+  virtual Tensor erf(const Tensor& tensor) = 0;
+  virtual Tensor flip(const Tensor& tensor, const unsigned dim) = 0;
   virtual Tensor
   clip(const Tensor& tensor, const Tensor& low, const Tensor& high) = 0;
   virtual Tensor isnan(const Tensor& tensor) = 0;
+  virtual Tensor isinf(const Tensor& tensor) = 0;
+  virtual Tensor sign(const Tensor& tensor) = 0;
+  virtual Tensor tril(const Tensor& tensor) = 0;
+  virtual Tensor triu(const Tensor& tensor) = 0;
   virtual Tensor
   where(const Tensor& condition, const Tensor& x, const Tensor& y) = 0;
+  virtual void topk(
+      Tensor& values,
+      Tensor& indices,
+      const Tensor& input,
+      const unsigned k,
+      const Dim axis,
+      const SortMode sortMode) = 0;
+  virtual Tensor
+  sort(const Tensor& input, const Dim axis, const SortMode sortMode) = 0;
+  virtual Tensor
+  argsort(const Tensor& input, const Dim axis, const SortMode sortMode) = 0;
 
   /************************** Binary Operators ***************************/
 #define FL_BINARY_OP_TYPE_DECL(FUNC, TYPE)            \
@@ -150,32 +182,87 @@ class TensorBackend {
       MatrixProperty rhsProp) = 0;
 
   /************************** Reductions ***************************/
-  virtual Tensor amin(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual double amin(const Tensor& input) = 0; // TODO: consoildate w/ above
-  virtual Tensor amax(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual double amax(const Tensor& input) = 0; // TODO: consoildate w/ above
-  virtual Tensor sum(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual double sum(const Tensor& input) = 0; // TODO: consolidate w/ above
-  virtual Tensor mean(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual double mean(const Tensor& input) = 0; // TODO: consolidate w/ above
   virtual Tensor
-  var(const Tensor& input, const std::vector<int>& axes, bool bias) = 0;
-  virtual double var(
+  amin(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor
+  amax(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual void min(
+      Tensor& values,
+      Tensor& indices,
       const Tensor& input,
-      bool bias) = 0; // TODO: consolidate w/ above
-  virtual Tensor std(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual double norm(const Tensor& input) = 0; // TODO: consolidate w/ above
+      const unsigned axis,
+      bool keepDims) = 0;
+  virtual void max(
+      Tensor& values,
+      Tensor& indices,
+      const Tensor& input,
+      const unsigned axis,
+      bool keepDims) = 0;
+  virtual Tensor
+  sum(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor cumsum(const Tensor& input, const unsigned axis) = 0;
+  virtual Tensor
+  argmax(const Tensor& input, const unsigned axis, bool keepDims) = 0;
+  virtual Tensor
+  argmin(const Tensor& input, const unsigned axis, bool keepDims) = 0;
+  virtual Tensor
+  mean(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor
+  median(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor var(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      bool bias,
+      bool keepDims) = 0;
+  virtual Tensor
+  std(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor norm(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      double p,
+      bool keepDims) = 0;
   virtual Tensor countNonzero(
       const Tensor& input,
-      const std::vector<int>& axes) = 0;
-  virtual Tensor any(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual bool any(const Tensor& input) = 0; // TODO: consolidate w/ above
-  virtual Tensor all(const Tensor& input, const std::vector<int>& axes) = 0;
-  virtual bool all(const Tensor& input) = 0; // TODO: consolidate w/ above
+      const std::vector<int>& axes,
+      bool keepDims) = 0;
+  virtual Tensor
+  any(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
+  virtual Tensor
+  all(const Tensor& input, const std::vector<int>& axes, bool keepDims) = 0;
 
   /************************** Utils ***************************/
   virtual void print(const Tensor& tensor) = 0;
 };
+
+/**
+ * Convert a Tensor from one backend to another.
+ *
+ * The resulting tensor will have the same shape, type, and contents.
+ *
+ * @param[in] in a tensor rvalue reference
+ * @return a tensor with backend type specified by the template
+ */
+template <typename T>
+Tensor toTensorType(Tensor&& in) {
+  static_assert(
+      std::is_base_of<TensorAdapterBase, T>::value,
+      "toTensorType: T must be a derived type of TensorAdapterBase");
+  // Fast path - backend is the same
+  // TODO: make fl::TensorBackendType a static constexpr on the class as well so
+  // as to not need to instantiate a backend to check the type
+  if (in.backendType() == T().backendType()) {
+    return std::move(in);
+  }
+
+  // As per impl requirements, Tensor::device() should return a pointer to host
+  // memory if the tensor resides on the host.
+  return Tensor(std::make_unique<T>(
+      in.shape(),
+      in.type(),
+      // TODO: use the void specialization instead of a reinterpret cast
+      reinterpret_cast<void*>(in.device<char>()), // expects contiguous memory
+      in.location()));
+}
 
 namespace detail {
 

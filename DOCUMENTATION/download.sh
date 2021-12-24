@@ -1,0 +1,10 @@
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_transformer_ctc_stride3_letters_300Mparams.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/am_conformer_ctc_stride3_letters_25Mparams.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/tokens.txt
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/lexicon.txt
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/lm_common_crawl_small_4gram_prun0-6-15_200kvocab.bin
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0000.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0001.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0002.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0003.flac
+wget https://dl.fbaipublicfiles.com/wav2letter/rasr/tutorial/audio/116-288045-0004.flac

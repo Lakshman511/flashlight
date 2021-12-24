@@ -1,17 +1,9 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-/*******************************************************
- * Copyright (c) 2017, ArrayFire
- * All rights reserved.
- *
- * This file is distributed under 3-clause BSD license.
- * The complete license agreement can be obtained at:
- * http://arrayfire.com/licenses/BSD-3-Clause
- ********************************************************/
 
 #include <algorithm>
 #include <array>
@@ -720,15 +712,15 @@ Variable matmul(const Variable& lhs, const Variable& rhs) {
       // matmulNT(gradOutput, inputs[1])
       // -- matmulNT([M, K], [N, K])
       // -- matmul([M, K], [K, N]) -- [M, K]
-      inputs[0].addGrad(
-          Variable(matmulNT(gradOutput, inputs[1]).array(), false));
+      auto val = af::matmulNT(gradOutput.array(), inputs[1].array());
+      inputs[0].addGrad(Variable(detail::sumAs(val, inputs[0].dims()), false));
     }
     if (inputs[1].isCalcGrad()) {
       // matmulTN(inputs[0], gradOutput)
       // -- matmulTN([M, N], [M, K])
       // -- matmul([N, M], [M, K]) -- [N, K]
-      inputs[1].addGrad(
-          Variable(matmulTN(inputs[0], gradOutput).array(), false));
+      auto val = af::matmulTN(inputs[0].array(), gradOutput.array());
+      inputs[1].addGrad(Variable(detail::sumAs(val, inputs[1].dims()), false));
     }
   };
   return Variable(result, {lhs, rhs}, gradFunc);
@@ -749,13 +741,14 @@ Variable matmulTN(const Variable& lhs, const Variable& rhs) {
       // matmulNT(inputs[1], gradOutput)
       // -- matmulNT([N, K], [M, K])
       // -- matmul([N, K], [K, M]) -- [N, M]
-      inputs[0].addGrad(
-          Variable(matmulNT(inputs[1], gradOutput).array(), false));
+      auto val = af::matmulNT(inputs[1].array(), gradOutput.array());
+      inputs[0].addGrad(Variable(detail::sumAs(val, inputs[0].dims()), false));
     }
     if (inputs[1].isCalcGrad()) {
       // matmul(inputs[0], gradOutput)
       // -- matmulNT([N, M], [M, K]) -- [N, K]
-      inputs[1].addGrad(Variable(matmul(inputs[0], gradOutput).array(), false));
+      auto val = af::matmul(inputs[0].array(), gradOutput.array());
+      inputs[1].addGrad(Variable(detail::sumAs(val, inputs[1].dims()), false));
     }
   };
   return Variable(result, {lhs, rhs}, gradFunc);
@@ -775,14 +768,15 @@ Variable matmulNT(const Variable& lhs, const Variable& rhs) {
     if (inputs[0].isCalcGrad()) {
       // matmul(gradOutput, inputs[1])
       // -- matmul([M, K], [K, N]) -- [M, N]
-      inputs[0].addGrad(Variable(matmul(gradOutput, inputs[1]).array(), false));
+      auto val = af::matmul(gradOutput.array(), inputs[1].array());
+      inputs[0].addGrad(Variable(detail::sumAs(val, inputs[0].dims()), false));
     }
     if (inputs[1].isCalcGrad()) {
       // matmulTN(gradOutput, inputs[0])
       // -- matmulTN([M, K], [M, N])
       // -- matmul([K, M], [M, N]) -- [K, N]
-      inputs[1].addGrad(
-          Variable(matmulTN(gradOutput, inputs[0]).array(), false));
+      auto val = af::matmulTN(gradOutput.array(), inputs[0].array());
+      inputs[1].addGrad(Variable(detail::sumAs(val, inputs[1].dims()), false));
     }
   };
   return Variable(result, {lhs, rhs}, gradFunc);

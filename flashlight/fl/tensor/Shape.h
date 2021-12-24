@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -40,8 +40,8 @@ using Dim = long long;
  * backing storage or handles.
  */
 class Shape {
-  // Storage for the dimension values.
-  // TODO: revisit initializing all dimensions to 1
+  // Storage for the dimension values. Defaults to an empty Shape {0}, whereas
+  // {} is a scalar shape.
   std::vector<Dim> dims_;
 
  public:
@@ -69,12 +69,12 @@ class Shape {
   /**
    * @return the number of elements in a tensor that has the given shape.
    */
-  size_t elements() const;
+  Dim elements() const;
 
   /**
    * @return Number of dimensions in the shape.
    */
-  size_t nDims() const;
+  size_t ndim() const;
 
   /**
    * Get the size of a given dimension in the number of arguments. Throws if the

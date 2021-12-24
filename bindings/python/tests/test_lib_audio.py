@@ -1,7 +1,7 @@
 """
 Copyright (c) Facebook, Inc. and its affiliates.
 
-This source code is licensed under the BSD-style license found in the
+This source code is licensed under the MIT-style license found in the
 LICENSE file in the root directory of this source tree.
 """
 
@@ -22,7 +22,7 @@ def test_mfcc():
     data_path = (
         Path(__file__)
         .absolute()
-        .parent.joinpath("../../../flashlight/lib/test/audio/feature/data")
+        .parent.joinpath("../../../flashlight/lib/audio/test/feature/data")
     )
 
     wavinput = load_data(data_path.joinpath("sa1.dat"))

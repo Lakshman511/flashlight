@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -10,7 +10,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <cmath>
-
+#include<iostream>
 namespace fl {
 namespace lib {
 namespace audio {
@@ -148,6 +148,8 @@ struct FeatureParams {
   int64_t mfscFeatSz() const {
     int64_t devMultiplier =
         1 + (deltaWindow > 0 ? 1 : 0) + (accWindow > 0 ? 1 : 0);
+    std::cout<<"For mfsc features : devMultiplier = "<<devMultiplier<<" deltawindow = "<<deltaWindow<<" accWindow = "<<accWindow<<std::endl;
+    std::cout<<" nuFilterbankChans = "<<numFilterbankChans<<" useEnergy = "<<useEnergy<<std::endl;
     return (numFilterbankChans + (useEnergy ? 1 : 0)) * (devMultiplier);
   }
 

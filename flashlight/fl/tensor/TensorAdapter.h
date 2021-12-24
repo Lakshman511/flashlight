@@ -1,11 +1,15 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
 #pragma once
+
+#include <functional>
+#include <memory>
+#include <utility>
 
 #include "flashlight/fl/tensor/TensorBase.h"
 
@@ -51,6 +55,14 @@ class TensorAdapterBase {
       fl::dtype type,
       void* ptr,
       MemoryLocation memoryLocation);
+
+  TensorAdapterBase(
+      const Dim nRows,
+      const Dim nCols,
+      const Tensor& values,
+      const Tensor& rowIdx,
+      const Tensor& colIdx,
+      StorageType storageType);
 
   /**
    * Copies the tensor adapter. The implementation defines whether or not tensor
@@ -98,6 +110,20 @@ class TensorAdapterBase {
   virtual dtype type() = 0;
 
   /**
+   * Returns if the tensor is sparse.
+   *
+   * @return true if the tensor is sparse, else false
+   */
+  virtual bool isSparse() = 0;
+
+  /**
+   * Get a tensor's location, host or some device.
+   *
+   * @return the tensor's location
+   */
+  virtual Location location() = 0;
+
+  /**
    * Populate a pointer with a scalar for the first element of the tensor.
    */
   virtual void scalar(void* out) = 0;
@@ -111,7 +137,7 @@ class TensorAdapterBase {
    * Populates a pointer with a pointer value in memory pointing to a host
    * buffer containing tensor data.
    */
-  virtual void host(void** out) = 0;
+  virtual void host(void* out) = 0;
 
   /**
    * Unlocks any device memory associated with the tensor that was acquired with
@@ -120,9 +146,23 @@ class TensorAdapterBase {
   virtual void unlock() = 0;
 
   /**
+   * Returns true if the tensor has been memory-locked per a call to
+   * Tensor::device<T>().
+   *
+   * @return true if the tensor is locked and a device pointer is active.
+   */
+  virtual bool isLocked() = 0;
+
+  /**
    * Returns a bool based on Tensor contiguousness in memory.
    */
   virtual bool isContiguous() = 0;
+
+  /**
+   * Get the dimension-wise strides for this tensor - the number of bytes to
+   * step in each direction when traversing.
+   */
+  virtual Shape strides() = 0;
 
   /**
    * Returns a tensor with elements cast as a particular type
@@ -146,6 +186,36 @@ class TensorAdapterBase {
    * @return a 1D version of this tensor
    */
   virtual Tensor flatten() const = 0;
+
+  /**
+   * Returns a tensor indexed from this tensor but indexed as a 1D/flattened
+   * tensor.
+   *
+   * @return a 1D version of this tensor 1D-indexed with the given index.
+   */
+  virtual Tensor flat(const Index& idx) const = 0;
+
+  /**
+   * Returns a copy of the tensor that is contiguous in memory.
+   */
+  virtual Tensor asContiguousTensor() = 0;
+
+  /**
+   * Sets arbitrary data on a tensor. May be a no-op for some backends.
+   */
+  virtual void setContext(void* context) = 0;
+
+  /**
+   * Sets arbitrary data on a tensor. May be a no-op for some backends.
+   *
+   * @return An arbitrary payload
+   */
+  virtual void* getContext() = 0;
+
+  /**
+   * Write a string representation of a tensor to an output stream.
+   */
+  virtual std::ostream& operator<<(std::ostream& ostr) = 0;
 
   /******************** Assignment Operators ********************/
 #define ASSIGN_OP_TYPE(OP, TYPE) virtual void OP(const TYPE& val) = 0;
@@ -176,14 +246,118 @@ class TensorAdapterBase {
 
 namespace detail {
 
+/*
+ * An interface with which to construct a tensor. Templated based on used tensor
+ * adapters.
+ */
+struct TensorCreator {
+  virtual ~TensorCreator() = default;
+
+  // General tensor ctor
+  virtual std::unique_ptr<TensorAdapterBase> get(
+      const Shape& shape = {0}, // 0 shape is an empty Tensor
+      fl::dtype type = fl::dtype::f32,
+      const void* ptr = nullptr,
+      MemoryLocation memoryLocation = MemoryLocation::Host) const = 0;
+
+  // Sparse tensor ctor
+  virtual std::unique_ptr<TensorAdapterBase> get(
+      const Dim nRows,
+      const Dim nCols,
+      const Tensor& values,
+      const Tensor& rowIdx,
+      const Tensor& colIdx,
+      StorageType storageType) const = 0;
+};
+
+template <typename T>
+struct TensorCreatorImpl : public TensorCreator {
+  TensorCreatorImpl() = default;
+  ~TensorCreatorImpl() override = default;
+
+  std::unique_ptr<TensorAdapterBase> get(
+      const Shape& shape = {0}, // 0 shape is an empty Tensor
+      fl::dtype type = fl::dtype::f32,
+      const void* ptr = nullptr,
+      MemoryLocation memoryLocation = MemoryLocation::Host) const override {
+    return std::make_unique<T>(shape, type, ptr, memoryLocation);
+  }
+
+  std::unique_ptr<TensorAdapterBase> get(
+      const Dim nRows,
+      const Dim nCols,
+      const Tensor& values,
+      const Tensor& rowIdx,
+      const Tensor& colIdx,
+      StorageType storageType) const override {
+    return std::make_unique<T>(
+        nRows, nCols, values, rowIdx, colIdx, storageType);
+  }
+};
+
+/*
+ * A singleton to hold a closure which creates a new tensor of default type. For
+ * internal use only - use setDefaultTensorType<T>() to set the type with which
+ * to create a default tensor.
+ */
+class DefaultTensorType {
+  // The function to use to create a tensor of default type.
+  std::unique_ptr<TensorCreator> creationFunc_;
+
+ public:
+  static DefaultTensorType& getInstance();
+  DefaultTensorType();
+
+  std::unique_ptr<TensorCreator> swap(
+      std::unique_ptr<TensorCreator> creator) noexcept;
+  const TensorCreator& getTensorCreator() const;
+
+  DefaultTensorType(DefaultTensorType const&) = delete;
+  void operator=(DefaultTensorType const&) = delete;
+};
+
 /**
  * Get an instance of the default tensor adapter.
  */
-std::unique_ptr<TensorAdapterBase> getDefaultAdapter(
-    const Shape& shape = Shape(),
-    fl::dtype type = fl::dtype::f32,
-    void* ptr = nullptr,
-    MemoryLocation memoryLocation = MemoryLocation::Host);
+template <typename... T>
+std::unique_ptr<TensorAdapterBase> getDefaultAdapter(T&&... t) {
+  return DefaultTensorType::getInstance().getTensorCreator().get(
+      std::forward<T>(t)...);
+}
 
 } // namespace detail
+
+/**
+ * Set the default tensor type for which new tensors will be created.
+ *
+ * This function is parameterized by the tensor type. Usage is as follows:
+ * \code
+   fl::setDefaultTensorType<TensorType>()
+   \endcode
+ *
+ * Where TensorType is derived from TensorAdapterBase.
+ */
+template <typename T>
+void setDefaultTensorType() {
+  static_assert(
+      std::is_base_of<TensorAdapterBase, T>::value,
+      "setDefaultTensorType: T must be a derived type of TensorAdapterBase");
+  fl::detail::DefaultTensorType::getInstance().swap(
+      std::make_unique<detail::TensorCreatorImpl<T>>());
+}
+
+template <typename T, typename B>
+void withTensorType(B func) {
+  static_assert(
+      std::is_base_of<TensorAdapterBase, T>::value,
+      "withTensorType: T must be a derived type of TensorAdapterBase");
+
+  // Swap
+  auto oldCreator = fl::detail::DefaultTensorType::getInstance().swap(
+      std::make_unique<detail::TensorCreatorImpl<T>>());
+  func();
+  // Restore
+  fl::detail::DefaultTensorType::getInstance().swap(std::move(oldCreator));
+}
+
 } // namespace fl

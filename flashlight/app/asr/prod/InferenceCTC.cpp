@@ -28,6 +28,21 @@
 #include "flashlight/lib/text/decoder/lm/KenLM.h"
 #include "jsonbuilder/include/jsonbuilder/JsonBuilder.h"
 #include "jsonbuilder/include/jsonbuilder/JsonRenderer.h"
+=======
+#include "flashlight/pkg/speech/common/Defines.h"
+#include "flashlight/pkg/speech/data/FeatureTransforms.h"
+#include "flashlight/pkg/speech/data/Sound.h"
+#include "flashlight/pkg/speech/data/Utils.h"
+#include "flashlight/pkg/speech/decoder/DecodeUtils.h"
+#include "flashlight/pkg/speech/decoder/Defines.h"
+#include "flashlight/pkg/speech/decoder/TranscriptionUtils.h"
+#include "flashlight/pkg/runtime/common/DistributedUtils.h"
+#include "flashlight/pkg/runtime/common/SequentialBuilder.h"
+#include "flashlight/pkg/runtime/common/Serializer.h"
+#include "flashlight/lib/text/decoder/LexiconDecoder.h"
+#include "flashlight/lib/text/decoder/lm/KenLM.h"
+
+
 
 //<======================================== Member functions ========================================>
 void printArray(af::array arr,std::string name, bool printdata){
@@ -108,11 +123,13 @@ void loadModel(
   LOG(INFO) << "[Inference tutorial for CTC] Reading acoustic model from "
             << FLAGS_am_path;
   fl::setDevice(0);
+
   fl::ext::Serializer::load(FLAGS_am_path, version, cfg, network, criterion);
   if (version != FL_APP_ASR_VERSION) {
     LOG(WARNING) << "[Inference tutorial for CTC] Acostuc model version "
                  << version << " and code version " << FL_APP_ASR_VERSION;
   }
+
   if (cfg.find(fl::app::asr::kGflags) == cfg.end()) {
     LOG(FATAL)
         << "[Inference tutorial for CTC] Invalid config is loaded from acoustic model"
@@ -463,6 +480,7 @@ int main(int argc, char** argv) {
   /* ===================== Create Network ===================== */
   std::shared_ptr<fl::Module> network;
   std::unordered_map<std::string, std::string> networkFlags;
+
   std::shared_ptr<fl::app::asr::SequenceCriterion> criterion;
   loadModel(network, networkFlags, criterion);
   network->eval();
@@ -539,6 +557,7 @@ int main(int argc, char** argv) {
   featParams.useEnergy = false;
   featParams.usePower = false;
   featParams.zeroMeanFrame = false;
+
   fl::app::asr::FeatureType featType;
   if (networkFlags.find("features_type") != networkFlags.end()) {
     featType = fl::app::asr::getFeatureType(
@@ -572,6 +591,7 @@ int main(int argc, char** argv) {
     audioListStream = std::ifstream(FLAGS_audio_list);
   }
 
+
   std::string transcript = "hello world";
   // create an inference engine
   Inference inferEngine(network,networkFlags,criterion,tokenDict,lexicon,wordDict,lm,&decoder,inputTransform,transcript, unkWordIdx);
@@ -598,6 +618,7 @@ int main(int argc, char** argv) {
                 << "' doesn't exist, please provide valid audio path";
       continue;
     }
+
     auto audioInfo = fl::app::asr::loadSoundInfo(audioPath.c_str());
     auto audio = fl::app::asr::loadSound<float>(audioPath.c_str());
     std::cout<< "While doing inference for " << audioPath << " file\n";

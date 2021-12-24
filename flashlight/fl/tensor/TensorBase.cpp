@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -36,12 +36,30 @@ Tensor::Tensor() : impl_(detail::getDefaultAdapter()) {}
 Tensor::Tensor(
     const Shape& shape,
     fl::dtype type,
-    void* ptr,
+    const void* ptr,
     MemoryLocation memoryLocation)
     : impl_(detail::getDefaultAdapter(shape, type, ptr, memoryLocation)) {}
 
+Tensor::Tensor(
+    const Dim nRows,
+    const Dim nCols,
+    const Tensor& values,
+    const Tensor& rowIdx,
+    const Tensor& colIdx,
+    StorageType storageType)
+    : impl_(detail::getDefaultAdapter(
+          nRows,
+          nCols,
+          values,
+          rowIdx,
+          colIdx,
+          storageType)) {}
+
 Tensor::Tensor(const Shape& shape, fl::dtype type /* = fl::dtype::f32 */)
     : impl_(detail::getDefaultAdapter(shape, type)) {}
+
+Tensor::Tensor(fl::dtype type)
+    : impl_(detail::getDefaultAdapter(Shape({0}), type)) {}
 
 Tensor Tensor::copy() const {
   return impl_->copy();
@@ -55,12 +73,24 @@ const Shape& Tensor::shape() const {
   return impl_->shape();
 }
 
+Location Tensor::location() const {
+  return impl_->location();
+}
+
 size_t Tensor::size() const {
   return impl_->shape().elements();
 }
 
 Dim Tensor::dim(const size_t dim) const {
   return shape().dim(dim);
+}
+
+size_t Tensor::ndim() const {
+  return shape().ndim();
+}
+
+bool Tensor::isEmpty() const {
+  return size() == 0;
 }
 
 size_t Tensor::bytes() const {
@@ -71,7 +101,11 @@ dtype Tensor::type() const {
   return impl_->type();
 }
 
-Tensor Tensor::astype(const dtype type) {
+bool Tensor::isSparse() const {
+  return impl_->isSparse();
+}
+
+Tensor Tensor::astype(const dtype type) const {
   return impl_->astype(type);
 }
 
@@ -83,6 +117,14 @@ Tensor Tensor::flatten() const {
   return impl_->flatten();
 }
 
+Tensor Tensor::flat(const Index& idx) const {
+  return impl_->flat(idx);
+}
+
+Tensor Tensor::asContiguousTensor() const {
+  return impl_->asContiguousTensor();
+}
+
 TensorBackendType Tensor::backendType() const {
   return impl_->backendType();
 }
@@ -91,40 +133,49 @@ TensorBackend& Tensor::backend() const {
   return impl_->backend();
 }
 
-#define FL_CREATE_MEMORY_OPS(TYPE)                          \
-  template <>                                               \
-  TYPE Tensor::scalar() const {                             \
-    if (type() != dtype_traits<TYPE>::fl_type) {            \
-      throw std::invalid_argument(                          \
-          "Tensor::scalar: requested type doesn't match "   \
-          "tensor type, which is " +                        \
-          std::string(dtype_traits<TYPE>::getName()));      \
-    }                                                       \
-    TYPE out;                                               \
-    impl_->scalar(&out);                                    \
-    return out;                                             \
-  }                                                         \
-                                                            \
-  template <>                                               \
-  TYPE* Tensor::device() const {                            \
-    TYPE* out;                                              \
-    void** addr = reinterpret_cast<void**>(&out);           \
-    impl_->device(addr);                                    \
-    return out;                                             \
-  }                                                         \
-                                                            \
-  template <>                                               \
-  TYPE* Tensor::host() const {                              \
-    TYPE* out = reinterpret_cast<TYPE*>(new char[bytes()]); \
-    void** addr = reinterpret_cast<void**>(&out);           \
-    impl_->host(addr);                                      \
-    return out;                                             \
-  }                                                         \
-                                                            \
-  template <>                                               \
-  void Tensor::host(TYPE* ptr) const {                      \
-    void** addr = reinterpret_cast<void**>(&ptr);           \
-    impl_->host(addr);                                      \
+#define FL_CREATE_MEMORY_OPS(TYPE)                                          \
+  template <>                                                               \
+  TYPE Tensor::scalar() const {                                             \
+    if (isEmpty()) {                                                        \
+      throw std::invalid_argument("Tensor::scalar called on empty tensor"); \
+    }                                                                       \
+    if (type() != dtype_traits<TYPE>::fl_type) {                            \
+      throw std::invalid_argument(                                          \
+          "Tensor::scalar: requested type of " +                            \
+          std::string(dtype_traits<TYPE>::getName()) +                      \
+          " doesn't match tensor type, which is " + dtypeToString(type())); \
+    }                                                                       \
+    TYPE out;                                                               \
+    impl_->scalar(&out);                                                    \
+    return out;                                                             \
+  }                                                                         \
+                                                                            \
+  template <>                                                               \
+  TYPE* Tensor::device() const {                                            \
+    if (isEmpty()) {                                                        \
+      return nullptr;                                                       \
+    }                                                                       \
+    TYPE* out;                                                              \
+    void** addr = reinterpret_cast<void**>(&out);                           \
+    impl_->device(addr);                                                    \
+    return out;                                                             \
+  }                                                                         \
+                                                                            \
+  template <>                                                               \
+  TYPE* Tensor::host() const {                                              \
+    if (isEmpty()) {                                                        \
+      return nullptr;                                                       \
+    }                                                                       \
+    TYPE* out = reinterpret_cast<TYPE*>(new char[bytes()]);                 \
+    impl_->host(out);                                                       \
+    return out;                                                             \
+  }                                                                         \
+                                                                            \
+  template <>                                                               \
+  void Tensor::host(TYPE* ptr) const {                                      \
+    if (!isEmpty()) {                                                       \
+      impl_->host(ptr);                                                     \
+    }                                                                       \
   }
 FL_CREATE_MEMORY_OPS(int);
 FL_CREATE_MEMORY_OPS(unsigned);
@@ -138,68 +189,82 @@ FL_CREATE_MEMORY_OPS(double);
 FL_CREATE_MEMORY_OPS(float);
 FL_CREATE_MEMORY_OPS(short);
 FL_CREATE_MEMORY_OPS(unsigned short);
+// void specializations
+template <>
+void* Tensor::device() const {
+  if (isEmpty()) {
+    return nullptr;
+  }
+  void* out;
+  impl_->device(&out);
+  return out;
+}
+
+template <>
+void* Tensor::host() const {
+  if (isEmpty()) {
+    return nullptr;
+  }
+  void* out = reinterpret_cast<void*>(new char[bytes()]);
+  impl_->host(out);
+  return out;
+}
+
+template <>
+void Tensor::host(void* ptr) const {
+  impl_->host(ptr);
+}
 #undef FL_CREATE_MEMORY_OPS
 
 void Tensor::unlock() const {
   impl_->unlock();
 }
 
+bool Tensor::isLocked() const {
+  return impl_->isLocked();
+}
+
 bool Tensor::isContiguous() const {
   return impl_->isContiguous();
 }
 
-// Generate template specializations for functions that return types
-#define EXPAND_MACRO_FUNCTION_TYPE(FUN, TYPE)             \
-  template <>                                             \
-  TYPE FUN(const Tensor& input) {                         \
-    return static_cast<TYPE>(input.backend().FUN(input)); \
-  }
-#define EXPAND_MACRO_FUNCTION(FUN)                     \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, int);                \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, unsigned);           \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, char);               \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, unsigned char);      \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, long);               \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, unsigned long);      \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, long long);          \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, unsigned long long); \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, double);             \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, float);              \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, short);              \
-  EXPAND_MACRO_FUNCTION_TYPE(FUN, unsigned short);
+Shape Tensor::strides() const {
+  return impl_->strides();
+}
 
-// fl::amin<T>(const Tensor&)
-EXPAND_MACRO_FUNCTION(amin);
-// fl::amax<T>(const Tensor&)
-EXPAND_MACRO_FUNCTION(amax);
-// fl::sum<T>(const Tensor&)
-EXPAND_MACRO_FUNCTION(sum);
-// fl::mean<T>(const Tensor&)
-EXPAND_MACRO_FUNCTION(mean);
-#undef EXPAND_MACRO_FUNCTION_TYPE
-#undef EXPAND_MACRO_FUNCTION
+void Tensor::setContext(void* context) {
+  impl_->setContext(context);
+}
+
+void* Tensor::getContext() const {
+  return impl_->getContext();
+}
+
+std::ostream& Tensor::operator<<(std::ostream& ostr) const {
+  return impl_->operator<<(ostr);
+}
 
 /******************** Assignment Operators ********************/
 #define FL_ASSIGN_OP_TYPE(OP, FUN, TYPE) \
-  Tensor& Tensor::OP(const TYPE& val) {  \
+  Tensor& Tensor::OP(TYPE val) {         \
     impl_->FUN(val);                     \
     return *this;                        \
   }
-#define FL_ASSIGN_OP(OP, FUN)                 \
-  FL_ASSIGN_OP_TYPE(OP, FUN, Tensor);         \
-  FL_ASSIGN_OP_TYPE(OP, FUN, double);         \
-  FL_ASSIGN_OP_TYPE(OP, FUN, float);          \
-  FL_ASSIGN_OP_TYPE(OP, FUN, int);            \
-  FL_ASSIGN_OP_TYPE(OP, FUN, unsigned);       \
-  FL_ASSIGN_OP_TYPE(OP, FUN, bool);           \
-  FL_ASSIGN_OP_TYPE(OP, FUN, char);           \
-  FL_ASSIGN_OP_TYPE(OP, FUN, unsigned char);  \
-  FL_ASSIGN_OP_TYPE(OP, FUN, short);          \
-  FL_ASSIGN_OP_TYPE(OP, FUN, unsigned short); \
-  FL_ASSIGN_OP_TYPE(OP, FUN, long);           \
-  FL_ASSIGN_OP_TYPE(OP, FUN, unsigned long);  \
-  FL_ASSIGN_OP_TYPE(OP, FUN, long long);      \
-  FL_ASSIGN_OP_TYPE(OP, FUN, unsigned long long);
+#define FL_ASSIGN_OP(OP, FUN)                        \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const Tensor&);         \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const double&);         \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const float&);          \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const int&);            \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const unsigned&);       \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const bool&);           \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const char&);           \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const unsigned char&);  \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const short&);          \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const unsigned short&); \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const long&);           \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const unsigned long&);  \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const long long&);      \
+  FL_ASSIGN_OP_TYPE(OP, FUN, const unsigned long long&);
 
 // (operator, function name on impl)
 FL_ASSIGN_OP(operator=, assign);
@@ -213,28 +278,56 @@ FL_ASSIGN_OP(operator/=, inPlaceDivide);
 /* --------------------------- Tensor Operators --------------------------- */
 
 /******************** Tensor Creation Functions ********************/
-#define FL_FULL_FUN_DEF(TYPE)                                    \
+#define FL_CREATE_FUN_LITERAL_TYPE(TYPE)                         \
+  template <>                                                    \
+  Tensor fromScalar(TYPE value, const dtype type) {              \
+    return Tensor().backend().fromScalar(value, type);           \
+  }                                                              \
   template <>                                                    \
   Tensor full(const Shape& dims, TYPE value, const dtype type) { \
     return Tensor().backend().full(dims, value, type);           \
   }
-FL_FULL_FUN_DEF(const double&);
-FL_FULL_FUN_DEF(const float&);
-FL_FULL_FUN_DEF(const int&);
-FL_FULL_FUN_DEF(const unsigned&);
-FL_FULL_FUN_DEF(const char&);
-FL_FULL_FUN_DEF(const unsigned char&);
-FL_FULL_FUN_DEF(const long&);
-FL_FULL_FUN_DEF(const unsigned long&);
-FL_FULL_FUN_DEF(const long long&);
-FL_FULL_FUN_DEF(const unsigned long long&);
-FL_FULL_FUN_DEF(const bool&);
-FL_FULL_FUN_DEF(const short&);
-FL_FULL_FUN_DEF(const unsigned short&);
-#undef FL_FULL_FUN_DEF
+FL_CREATE_FUN_LITERAL_TYPE(const double&);
+FL_CREATE_FUN_LITERAL_TYPE(const float&);
+FL_CREATE_FUN_LITERAL_TYPE(const int&);
+FL_CREATE_FUN_LITERAL_TYPE(const unsigned&);
+FL_CREATE_FUN_LITERAL_TYPE(const char&);
+FL_CREATE_FUN_LITERAL_TYPE(const unsigned char&);
+FL_CREATE_FUN_LITERAL_TYPE(const long&);
+FL_CREATE_FUN_LITERAL_TYPE(const unsigned long&);
+FL_CREATE_FUN_LITERAL_TYPE(const long long&);
+FL_CREATE_FUN_LITERAL_TYPE(const unsigned long long&);
+FL_CREATE_FUN_LITERAL_TYPE(const bool&);
+FL_CREATE_FUN_LITERAL_TYPE(const short&);
+FL_CREATE_FUN_LITERAL_TYPE(const unsigned short&);
+#undef FL_CREATE_FUN_LITERAL_TYPE
 
 Tensor identity(const Dim dim, const dtype type) {
   return Tensor().backend().identity(dim, type);
+}
+
+#define FL_ARANGE_FUN_DEF(TYPE)                                             \
+  template <>                                                               \
+  Tensor arange(TYPE start, TYPE end, TYPE step, const dtype type) {        \
+    return fl::arange({static_cast<long>((end - start) / step)}, 0, type) * \
+        step +                                                              \
+        start;                                                              \
+  }
+FL_ARANGE_FUN_DEF(const double&);
+FL_ARANGE_FUN_DEF(const float&);
+FL_ARANGE_FUN_DEF(const int&);
+FL_ARANGE_FUN_DEF(const unsigned&);
+FL_ARANGE_FUN_DEF(const long&);
+FL_ARANGE_FUN_DEF(const unsigned long&);
+FL_ARANGE_FUN_DEF(const long long&);
+FL_ARANGE_FUN_DEF(const unsigned long long&);
+
+Tensor arange(const Shape& shape, const Dim seqDim, const dtype type) {
+  return Tensor().backend().arange(shape, seqDim, type);
+}
+
+Tensor iota(const Shape& dims, const Shape& tileDims, const dtype type) {
+  return Tensor().backend().iota(dims, tileDims, type);
 }
 
 /************************ Shaping and Indexing *************************/
@@ -243,8 +336,8 @@ Tensor reshape(const Tensor& tensor, const Shape& shape) {
   return tensor.backend().reshape(tensor, shape);
 }
 
-Tensor transpose(const Tensor& tensor, const Shape& dims /* = {} */) {
-  return tensor.backend().transpose(tensor, dims);
+Tensor transpose(const Tensor& tensor, const Shape& axes /* = {} */) {
+  return tensor.backend().transpose(tensor, axes);
 }
 
 Tensor tile(const Tensor& tensor, const Shape& shape) {
@@ -272,6 +365,13 @@ Tensor concatenate(const std::vector<Tensor>& tensors, unsigned axis) {
 
 Tensor nonzero(const Tensor& tensor) {
   return tensor.backend().nonzero(tensor);
+}
+
+Tensor pad(
+    const Tensor& input,
+    const std::vector<std::pair<int, int>>& padWidths,
+    const PadType type) {
+  return input.backend().pad(input, padWidths, type);
 }
 
 /************************** Unary Operators ***************************/
@@ -319,8 +419,24 @@ Tensor ceil(const Tensor& tensor) {
   return tensor.backend().ceil(tensor);
 }
 
+Tensor rint(const Tensor& tensor) {
+  return tensor.backend().rint(tensor);
+}
+
 Tensor absolute(const Tensor& tensor) {
   return tensor.backend().absolute(tensor);
+}
+
+Tensor sigmoid(const Tensor& tensor) {
+  return tensor.backend().sigmoid(tensor);
+}
+
+Tensor erf(const Tensor& tensor) {
+  return tensor.backend().erf(tensor);
+}
+
+Tensor flip(const Tensor& tensor, const unsigned dim) {
+  return tensor.backend().flip(tensor, dim);
 }
 
 Tensor clip(const Tensor& tensor, const Tensor& low, const Tensor& high) {
@@ -329,10 +445,12 @@ Tensor clip(const Tensor& tensor, const Tensor& low, const Tensor& high) {
 }
 
 Tensor clip(const Tensor& tensor, const Tensor& low, const double& high) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(tensor, low);
   return clip(tensor, low, full(tensor.shape(), high));
 }
 
 Tensor clip(const Tensor& tensor, const double& low, const Tensor& high) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(tensor, high);
   return clip(tensor, full(tensor.shape(), low), high);
 }
 
@@ -344,9 +462,56 @@ Tensor isnan(const Tensor& tensor) {
   return tensor.backend().isnan(tensor);
 }
 
+Tensor isinf(const Tensor& tensor) {
+  return tensor.backend().isinf(tensor);
+}
+
+Tensor sign(const Tensor& tensor) {
+  return tensor.backend().sign(tensor);
+}
+
+Tensor tril(const Tensor& tensor) {
+  return tensor.backend().tril(tensor);
+}
+
+Tensor triu(const Tensor& tensor) {
+  return tensor.backend().triu(tensor);
+}
+
 Tensor where(const Tensor& condition, const Tensor& x, const Tensor& y) {
   FL_TENSOR_BACKENDS_MATCH_CHECK(condition, x, y);
   return condition.backend().where(condition, x, y);
+}
+
+Tensor where(const Tensor& condition, const Tensor& x, const double& y) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(condition, x);
+  return condition.backend().where(
+      condition, x, fl::full(condition.shape(), y, x.type()));
+}
+
+Tensor where(const Tensor& condition, const double& x, const Tensor& y) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(condition, y);
+  return condition.backend().where(
+      condition, fl::full(condition.shape(), x, y.type()), y);
+}
+
+void topk(
+    Tensor& values,
+    Tensor& indices,
+    const Tensor& input,
+    const unsigned k,
+    const Dim axis,
+    const SortMode sortMode) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(values, indices, input);
+  input.backend().topk(values, indices, input, k, axis, sortMode);
+}
+
+Tensor sort(const Tensor& input, const Dim axis, const SortMode sortMode) {
+  return input.backend().sort(input, axis, sortMode);
+}
+
+Tensor argsort(const Tensor& input, const Dim axis, const SortMode sortMode) {
+  return input.backend().argsort(input, axis, sortMode);
 }
 
 /************************** Binary Operators ***************************/
@@ -442,6 +607,10 @@ Tensor power(const Tensor& lhs, const Tensor& rhs) {
   return lhs.backend().power(lhs, rhs);
 }
 
+Tensor power(const Tensor& lhs, const double& rhs) {
+  return lhs.backend().power(lhs, full(lhs.shape(), rhs));
+}
+
 /******************************* BLAS ********************************/
 Tensor matmul(
     const Tensor& lhs,
@@ -454,86 +623,125 @@ Tensor matmul(
 
 /************************** Reductions ***************************/
 
-Tensor amin(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().amin(input, axes);
+Tensor amin(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().amin(input, axes, keepDims);
 }
 
-Tensor amax(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().amax(input, axes);
+Tensor amax(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().amax(input, axes, keepDims);
 }
 
-Tensor sum(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().sum(input, axes);
+void min(
+    Tensor& values,
+    Tensor& indices,
+    const Tensor& input,
+    const unsigned axis,
+    bool keepDims) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(values, indices, input);
+  return input.backend().min(values, indices, input, axis, keepDims);
 }
 
-Tensor mean(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().mean(input, axes);
+void max(
+    Tensor& values,
+    Tensor& indices,
+    const Tensor& input,
+    const unsigned axis,
+    bool keepDims /* = false */) {
+  FL_TENSOR_BACKENDS_MATCH_CHECK(values, indices, input);
+  return input.backend().max(values, indices, input, axis, keepDims);
 }
 
-Tensor var(const Tensor& input, const std::vector<int>& axes, const bool bias) {
-  return input.backend().var(input, axes, bias);
+Tensor sum(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().sum(input, axes, keepDims);
 }
 
-// fl::var<T>(const Tensor&)
-#define GENERATE_VAR(TYPE)                                      \
-  template <>                                                   \
-  TYPE var(const Tensor& input, const bool bias) {              \
-    return static_cast<TYPE>(input.backend().var(input, bias)); \
-  }
-
-GENERATE_VAR(int);
-GENERATE_VAR(unsigned);
-GENERATE_VAR(char);
-GENERATE_VAR(unsigned char);
-GENERATE_VAR(long);
-GENERATE_VAR(unsigned long);
-GENERATE_VAR(long long);
-GENERATE_VAR(unsigned long long);
-GENERATE_VAR(double);
-GENERATE_VAR(float);
-GENERATE_VAR(short);
-GENERATE_VAR(unsigned short);
-#undef GENERATE_VAR
-
-Tensor std(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().std(input, axes);
+Tensor cumsum(const Tensor& input, const unsigned axis) {
+  return input.backend().cumsum(input, axis);
 }
 
-double norm(const Tensor& input) {
-  return input.backend().norm(input);
+Tensor
+argmax(const Tensor& input, const unsigned axis, bool keepDims /* = false */) {
+  return input.backend().argmax(input, axis, keepDims);
 }
 
-Tensor countNonzero(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().countNonzero(input, axes);
+Tensor
+argmin(const Tensor& input, const unsigned axis, bool keepDims /* = false */) {
+  return input.backend().argmin(input, axis, keepDims);
 }
 
-Tensor any(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().any(input, axes);
+Tensor mean(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().mean(input, axes, keepDims);
 }
 
-bool any(const Tensor& input) {
-  return input.backend().any(input);
+Tensor median(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().median(input, axes, keepDims);
 }
 
-Tensor all(const Tensor& input, const std::vector<int>& axes) {
-  return input.backend().all(input, axes);
+Tensor var(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    const bool bias,
+    bool keepDims /* = false */) {
+  return input.backend().var(input, axes, bias, keepDims);
 }
 
-bool all(const Tensor& input) {
-  return input.backend().all(input);
+Tensor std(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().std(input, axes, keepDims);
 }
 
-template <typename T>
-T amin(const Tensor& input) {
-  return static_cast<T>(input.backend().amin(input));
+Tensor norm(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    double p /* = 2 */,
+    bool keepDims /* = false */) {
+  return input.backend().norm(input, axes, p, keepDims);
 }
 
-template <typename T>
-T amax(const Tensor& input) {
-  return static_cast<T>(input.backend().amax(input));
+Tensor countNonzero(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().countNonzero(input, axes, keepDims);
+}
+
+Tensor any(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().any(input, axes, keepDims);
+}
+
+Tensor all(
+    const Tensor& input,
+    const std::vector<int>& axes /* = {} */,
+    bool keepDims /* = false */) {
+  return input.backend().all(input, axes, keepDims);
 }
 
 /************************** Utilities ***************************/
+
+std::ostream& operator<<(std::ostream& ostr, const Tensor& t) {
+  t.operator<<(ostr);
+  return ostr;
+}
 
 void print(const Tensor& tensor) {
   tensor.backend().print(tensor);
@@ -552,7 +760,8 @@ bool allClose(
   if (a.size() == 0 && b.size() == 0) {
     return true;
   }
-  return fl::amax<double>(fl::abs(a - b)) < absTolerance;
+  return fl::amax(fl::abs(a - b)).astype(dtype::f64).scalar<double>() <
+      absTolerance;
 }
 
 } // namespace fl

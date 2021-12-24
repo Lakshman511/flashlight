@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -10,7 +10,7 @@
 #include <sstream>
 
 #include "flashlight/app/lm/common/Defines.h"
-#include "flashlight/app/common/Runtime.h"
+#include "flashlight/pkg/runtime/Runtime.h"
 #include "flashlight/fl/common/Init.h"
 #include "flashlight/fl/common/Logging.h"
 #include "flashlight/lib/common/String.h"
@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
       " \n Compulsory: [--data_train] [--dictionary]");
   LOG(INFO) << "Parsing command line flags";
   gflags::ParseCommandLineFlags(&argc, &argv, false);
-  LOG(INFO) << "Gflags after parsing \n" << fl::app::serializeGflags("; ");
+  LOG(INFO) << "Gflags after parsing \n" << fl::pkg::runtime::serializeGflags("; ");
 
   if (argc <= 1 || FLAGS_data_train.empty() || FLAGS_dictionary.empty()) {
     throw std::invalid_argument(gflags::ProgramUsage());

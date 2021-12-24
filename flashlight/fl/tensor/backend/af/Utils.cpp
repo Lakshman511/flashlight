@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -62,48 +62,78 @@ af_mat_prop flToAfMatrixProperty(MatrixProperty property) {
   }
 }
 
+af_storage flToAfStorageType(StorageType storageType) {
+  switch (storageType) {
+    case StorageType::Dense:
+      return AF_STORAGE_DENSE;
+    case StorageType::CSR:
+      return AF_STORAGE_CSR;
+    case StorageType::CSC:
+      return AF_STORAGE_CSC;
+    case StorageType::COO:
+      return AF_STORAGE_COO;
+    default:
+      throw std::invalid_argument(
+          "flToAfStorageType: Flashlight storage type "
+          "doesn't have an ArrayFire analog");
+  }
+}
+
+af_topk_function flToAfSortMode(SortMode sortMode) {
+  switch (sortMode) {
+    case SortMode::Descending:
+      return AF_TOPK_MAX;
+    case SortMode::Ascending:
+      return AF_TOPK_MIN;
+    default:
+      throw std::invalid_argument(
+          "flToAfSortMode: sort mode with no ArrayFire analog specified");
+  }
+}
+
 af::dim4 flToAfDims(const Shape& shape) {
-  if (shape.nDims() > 4) {
+  if (shape.ndim() > 4) {
     throw std::invalid_argument(
         "flToAfDims: ArrayFire shapes can't be more than 4 dimensions");
   }
-  if (shape.elements() == 0) {
-    return af::dim4(0);
-  }
+
   af::dim4 out(1, 1, 1, 1);
-  for (size_t i = 0; i < shape.nDims(); ++i) {
+  for (size_t i = 0; i < shape.ndim(); ++i) {
     out.dims[i] = shape.dim(i);
   }
   return out;
 }
 
-void afToFlDims(const af::dim4& d, Shape& s) {
+void afToFlDims(const af::dim4& d, const unsigned numDims, Shape& s) {
+  if (numDims > AF_MAX_DIMS) {
+    throw std::invalid_argument("afToFlDims - numDims > AF_MAX_DIMS");
+  }
+
   auto& storage = s.get();
-  if (d.elements() == 0) {
+
+  // numdims constraint is enforced by the internal API per condenseDims
+  if (numDims == 1 && d.elements() == 0) {
+    // Empty tensor
+    storage.resize(1);
+    s[0] = 0;
+    return;
+  }
+
+  // numDims == 0 --> scalar tensor
+  if (numDims == 0) {
     storage.resize(0);
     return;
   }
-  if (d.elements() == 1) {
-    storage.resize(1);
-    s[0] = 1;
-    return;
-  }
 
-  // Number of non-trailing-1 dims
-  unsigned idx = AF_MAX_DIMS - 1;
-  while (d[idx] == 1) {
-    --idx;
-  }
-
-  storage.resize(idx + 1);
-  for (unsigned i = 0; i <= idx; ++i) {
+  storage.resize(numDims);
+  for (unsigned i = 0; i < numDims; ++i) {
     s[i] = d[i];
   }
 }
 
-Shape afToFlDims(const af::dim4& d) {
+Shape afToFlDims(const af::dim4& d, const unsigned numDims) {
   Shape s;
-  afToFlDims(d, s);
+  afToFlDims(d, numDims, s);
   return s;
 }
 
@@ -116,14 +146,12 @@ af::index flToAfIndex(const fl::Index& idx) {
   switch (idx.type()) {
     case IndexType::Tensor:
       return af::index(toArray(idx.get<Tensor>()));
+    case IndexType::Span:
+      return af::index(af::span);
     case IndexType::Range:
-      if (idx.isSpan()) {
-        return af::index(af::span);
-      } else {
-        return af::index(flRangeToAfSeq(idx.get<range>()));
-      }
+      return af::index(flRangeToAfSeq(idx.get<range>()));
     case IndexType::Literal:
-      return af::index(idx.get<int>());
+      return af::index(idx.get<Dim>());
     default:
       throw std::invalid_argument(
           "flToAfIndex: fl::Index has unknown or invalid type.");
@@ -148,14 +176,41 @@ af::dim4 condenseDims(const af::dim4& dims) {
   return newDims;
 }
 
-af::array condenseIndices(const af::array& arr) {
+af::array condenseIndices(
+    const af::array& arr,
+    bool keepDims /* = false */,
+    const std::optional<std::vector<detail::IndexType>>&
+        indexTypes /* = {} */) {
+  // Fast path - return the Array as is if keepDims - don't consolidate
+  if (keepDims) {
+    return arr;
+  }
   // Fast path - Array has zero elements or a dim of size zero
   if (arr.elements() == 0) {
     return arr;
   }
 
+  const af::dim4& dims = arr.dims();
+  af::dim4 newDims(1, 1, 1, 1);
+  unsigned newDimIdx = 0;
+  for (unsigned i = 0; i < AF_MAX_DIMS; ++i) {
+    if (dims[i] == 1 && indexTypes && indexTypes.value().size() > i) {
+    }
+
+    // If we're doing an index op (indexTypes is non-empty), then only collapse
+    // the dimension if it contains an index literal
+    if (dims[i] == 1 && indexTypes && indexTypes.value().size() > i &&
+        indexTypes.value()[i] != detail::IndexType::Literal) {
+      newDims[newDimIdx] = 1;
+      newDimIdx++;
+    } else if (dims[i] != 1) {
+      // found a non-1 dim size - populate newDims.
+      newDims[newDimIdx] = dims[i];
+      newDimIdx++;
+    }
+  }
+
   // Only change dims if condensing is possible
-  af::dim4 newDims = condenseDims(arr.dims());
   if (newDims != arr.dims()) {
     return af::moddims(arr, newDims);
   } else {
@@ -178,7 +233,7 @@ af_source flToAfLocation(Location location) {
 
 af::array fromFlData(
     const Shape& shape,
-    void* ptr,
+    const void* ptr,
     fl::dtype type,
     fl::Location memoryLocation) {
   af::dim4 dims = detail::flToAfDims(shape);
@@ -193,28 +248,44 @@ af::array fromFlData(
   using af::dtype;
   switch (afType) {
     case f32:
-      return af::array(dims, reinterpret_cast<float*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const float*>(ptr), loc);
     case f64:
-      return af::array(dims, reinterpret_cast<double*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const double*>(ptr), loc);
     case s32:
-      return af::array(dims, reinterpret_cast<int*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const int*>(ptr), loc);
     case u32:
-      return af::array(dims, reinterpret_cast<unsigned*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const unsigned*>(ptr), loc);
     case s64:
-      return af::array(dims, reinterpret_cast<long long*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const long long*>(ptr), loc);
     case u64:
-      return af::array(dims, reinterpret_cast<unsigned long long*>(ptr), loc);
+      return af::array(
+          dims, reinterpret_cast<const unsigned long long*>(ptr), loc);
     case s16:
-      return af::array(dims, reinterpret_cast<short*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const short*>(ptr), loc);
     case u16:
-      return af::array(dims, reinterpret_cast<unsigned short*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const unsigned short*>(ptr), loc);
     case b8:
-      return af::array(dims, reinterpret_cast<char*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const char*>(ptr), loc);
     case u8:
-      return af::array(dims, reinterpret_cast<unsigned char*>(ptr), loc);
+      return af::array(dims, reinterpret_cast<const unsigned char*>(ptr), loc);
     default:
       throw std::invalid_argument(
           "fromFlData: can't construct ArrayFire array from given type.");
+  }
+}
+
+af_border_type flToAfPadType(PadType type) {
+  switch (type) {
+    case PadType::Constant:
+      return AF_PAD_ZERO; // constant padding --> zero padding in AF
+    case PadType::Edge:
+      return AF_PAD_CLAMP_TO_EDGE;
+    case PadType::Symmetric:
+      return AF_PAD_SYM;
+    default:
+      throw std::invalid_argument(
+          "flToAfPadType: Flashlight padding "
+          "type not supported by ArrayFire");
   }
 }
 

@@ -2,7 +2,7 @@
 """
 Copyright (c) Facebook, Inc. and its affiliates.
 
-This source code is licensed under the BSD-style license found in the
+This source code is licensed under the MIT-style license found in the
 LICENSE file in the root directory of this source tree.
 """
 
@@ -70,9 +70,8 @@ class CMakeBuild(build_ext):
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DFL_BUILD_STANDALONE=OFF",
             "-DBUILD_SHARED_LIBS=ON",
-            "-DFL_BUILD_LIBRARIES=ON",
             "-DFL_BUILD_CORE=OFF",
-            "-DFL_BUILD_TESTS=OFF",
+            "-DFL_BUILD_ALL_LIBS=ON",
             "-DFL_BUILD_EXAMPLES=OFF",
             "-DFL_BACKEND=" + backend,
             "-DFL_LIBRARIES_BUILD_FOR_PYTHON=ON",

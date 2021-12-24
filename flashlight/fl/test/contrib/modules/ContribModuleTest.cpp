@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -207,6 +207,12 @@ void transformerFwd(bool isfp16) {
   ASSERT_EQ(output[0].dims(0), c);
   ASSERT_EQ(output[0].dims(1), timesteps);
   ASSERT_EQ(output[0].dims(2), batchsize);
+
+  tr.setDropout(0);
+  tr.setLayerDropout(0);
+  auto output1 = tr.forward({input, padMask}).front();
+  auto output2 = tr.forward({input, padMask}).front();
+  ASSERT_TRUE(allClose(output1, output2, 1E-7));
 }
 
 TEST(ContribModuleTest, TransformerFwd) {
@@ -288,7 +294,7 @@ void sinusoidalPositionEmbeddingFwd(bool isfp16) {
   int csz = 256;
   auto dtype = isfp16 ? af::dtype::f16 : af::dtype::f32;
 
-  auto posemb = SinusoidalPositionEmbedding(csz, 2.);
+  auto posemb = SinusoidalPositionEmbedding(csz, /* inputScale = */ 2.);
   auto input =
       Variable(af::randu(csz, timesteps, batchsize, 1, dtype), false) - 0.5;
 

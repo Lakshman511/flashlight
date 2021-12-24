@@ -21,5 +21,16 @@ RUN cd /root/flashlight && mkdir -p build && \
     cd build && cmake .. -DCMAKE_BUILD_TYPE=Release \
                          -DCMAKE_INSTALL_PREFIX=/opt/flashlight \
                          -DFL_BACKEND=CUDA \
-                         -DFL_BUILD_ALL_APPS=ON && \
+                         -DFL_BUILD_LIB_COMMON=ON \
+                         -DFL_BUILD_CORE=ON \
+                         -DFL_BUILD_PKG_TEXT=ON \
+                         -DFL_BUILD_PKG_RUNTIME=ON \
+                         -DFL_BUILD_LIB_SEQUENCE=ON \
+                         -DFL_BUILD_LIB_TEXT=ON \
+                         -DFL_BUILD_LIB_AUDIO=ON \
+                         -DFL_BUILD_PKG_SPEECH=ON \
+                         -DFL_BUILD_APP_ASR=ON \
+                         -DFL_BUILD_APP_LM=ON \
+                         -DFL_BUILD_APP_ASR_TOOLS=ON \
+                         -DFL_BUILD_ALL_APPS=OFF && \
     make install -j$(nproc)

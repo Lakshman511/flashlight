@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. 6and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -39,6 +39,15 @@ size_t getTypeSize(dtype type);
 const std::string& dtypeToString(dtype type);
 
 /**
+ * Converts string to a Flashlight dtype
+ *
+ * @param[in] string type name as a string.
+ *
+ * @return returns the corresponding Flashlight dtype
+ */
+fl::dtype stringToDtype(const std::string& string);
+
+/**
  * Write a type's string representation to an output stream.
  */
 std::ostream& operator<<(std::ostream& ostr, const dtype& s);
@@ -61,7 +70,7 @@ FL_TYPE_TRAIT(float, dtype::f32, dtype::f32, "float");
 FL_TYPE_TRAIT(double, dtype::f64, dtype::f32, "double");
 FL_TYPE_TRAIT(int, dtype::s32, dtype::s32, "int");
 FL_TYPE_TRAIT(unsigned, dtype::u32, dtype::u32, "unsigned int");
-FL_TYPE_TRAIT(char, dtype::s32, dtype::s32, "char");
+FL_TYPE_TRAIT(char, dtype::b8, dtype::s32, "char");
 FL_TYPE_TRAIT(unsigned char, dtype::u8, dtype::u32, "unsigned char");
 FL_TYPE_TRAIT(long, dtype::s32, dtype::s32, "long int");
 FL_TYPE_TRAIT(unsigned long, dtype::u32, dtype::u32, "unsigned long");

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -17,14 +17,16 @@ namespace fl {
 Shape::Shape(std::vector<Dim> d) : dims_(std::move(d)) {}
 Shape::Shape(std::initializer_list<Dim> d) : Shape(std::vector<Dim>(d)) {}
 
-size_t Shape::elements() const {
+const Dim kEmptyShapeNumberOfElements = 1;
+
+Dim Shape::elements() const {
   if (dims_.size() == 0) {
-    return 0;
+    return kEmptyShapeNumberOfElements;
   }
   return std::accumulate(dims_.begin(), dims_.end(), 1, std::multiplies<Dim>());
 }
 
-size_t Shape::nDims() const {
+size_t Shape::ndim() const {
   return dims_.size();
 }
 
@@ -63,9 +65,11 @@ bool Shape::operator!=(const std::initializer_list<Dim>& other) const {
 }
 
 std::ostream& operator<<(std::ostream& ostr, const Shape& s) {
-  for (size_t i = 0; i < s.nDims(); ++i) {
-    ostr << s.dim(i) << " ";
+  ostr << "(";
+  for (size_t i = 0; i < s.ndim(); ++i) {
+    ostr << s.dim(i) << (i == s.ndim() - 1 ? "" : ", ");
   }
+  ostr << ")";
   return ostr;
 }
 

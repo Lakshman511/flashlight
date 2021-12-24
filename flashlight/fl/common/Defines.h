@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -63,6 +63,7 @@ enum class DistributedBackend {
   GLOO = 0,
   /// https://developer.nvidia.com/nccl
   NCCL = 1,
+  STUB = 2,
 };
 
 enum class DistributedInit {

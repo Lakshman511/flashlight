@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -59,6 +59,8 @@ class Transformer : public Container {
       bool preLN = false);
 
   std::vector<Variable> forward(const std::vector<Variable>& input) override;
+  void setDropout(float value);
+  void setLayerDropout(float value);
   std::string prettyString() const override;
 
  private:

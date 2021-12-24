@@ -1,0 +1,23 @@
+We are using KenLM tool kit to generate language model and lexicon.txt file.
+Building KenLM tool kit is quite simple.
+Runn the below commands in sequence.
+    wget -O - https://kheafield.com/code/kenlm.tar.gz |tar xz
+    mkdir kenlm/build
+    cd kenlm/build
+    cmake ..
+    make -j2
+After building the the KenLM toolkit we can generate the 
+Langauage model using generate_lm.py file.
+Sample command format to run:
+    python generate_lm.py   --input_txt path_to_input_text_file\
+       --output_dir .  \
+        --top_k 500000   \
+        --kenlm_bins path_to_kenlm_build_bin \
+        --arpa_order 5   \
+        --max_arpa_memory "85%" \
+        --arpa_prune "0|0|1" \
+        --binary_a_bits 255 \
+        --binary_q_bits 8  \
+        --binary_type trie
+
+python generate_lm.py   --input_txt ../../../kenlm_latest/Experiments/librispeech-data/librispeech-lm-norm.txt.gz   --output_dir .   --top_k 500000   --kenlm_bins path/to/kenlm/build/bin/   --arpa_order 5   --max_arpa_memory "85%"   --arpa_prune "0|0|1"   --binary_a_bits 255   --binary_q_bits 8   --binary_type trie

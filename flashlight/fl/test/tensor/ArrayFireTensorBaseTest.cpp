@@ -1,15 +1,18 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
 #include <arrayfire.h>
 #include <gtest/gtest.h>
+
 #include <stdexcept>
+#include <utility>
 
 #include "flashlight/fl/tensor/Random.h"
+#include "flashlight/fl/tensor/TensorBackend.h"
 #include "flashlight/fl/tensor/TensorBase.h"
 #include "flashlight/fl/tensor/backend/af/ArrayFireTensor.h"
 #include "flashlight/fl/tensor/backend/af/Utils.h"
@@ -40,6 +43,32 @@ bool allClose(
 
 } // namespace
 
+namespace fl {
+
+TEST(ArrayFireTensorBaseTest, ArrayFireShapeInterop) {
+  ASSERT_EQ(detail::afToFlDims(af::dim4(), 0), Shape({})); // scalar
+  ASSERT_EQ(detail::afToFlDims(af::dim4(0), 1), Shape({0}));
+  ASSERT_EQ(detail::afToFlDims(af::dim4(0, 5), 2), Shape({0, 5}));
+  ASSERT_EQ(detail::afToFlDims(af::dim4(1, 0, 2), 3), Shape({1, 0, 2}));
+  ASSERT_EQ(detail::afToFlDims(af::dim4(0, 1, 1, 1), 4), Shape({0, 1, 1, 1}));
+
+  using namespace fl::detail;
+  auto dimsEq = [](const af::dim4& d, const Shape& s) {
+    return detail::afToFlDims(d, s.ndim()) == s;
+  };
+
+  ASSERT_TRUE(dimsEq(af::dim4(3), {3})); // not 3, 1, 1, 1
+  ASSERT_TRUE(dimsEq(af::dim4(3, 2), {3, 2})); // not 3, 2, 1, 1
+  ASSERT_TRUE(dimsEq(af::dim4(3, 1), {3}));
+  // if explicitly specified, uses implicit 1 dim
+  ASSERT_TRUE(dimsEq(af::dim4(3, 1), {3, 1}));
+  ASSERT_TRUE(dimsEq(af::dim4(1, 3, 2), {1, 3, 2}));
+  ASSERT_TRUE(dimsEq(af::dim4(1), {1}));
+  ASSERT_TRUE(dimsEq(af::dim4(1, 1, 1), {1}));
+}
+
+} // namespace fl
+
 TEST(ArrayFireTensorBaseTest, AfRefCountBasic) {
   // Sanity check that af::arrays moved into fl::Tensors don't have their
   // refcount inrcremented/show proper usage of refs in tensor ops
@@ -48,7 +77,7 @@ TEST(ArrayFireTensorBaseTest, AfRefCountBasic) {
   af_get_data_ref_count(&refCount, a.get());
   ASSERT_EQ(refCount, 1);
 
-  auto tensor = toTensor<ArrayFireTensor>(std::move(a));
+  auto tensor = toTensor<ArrayFireTensor>(std::move(a), /* numDims = */ 2);
   auto& aRef = toArray(tensor);
   af_get_data_ref_count(&refCount, aRef.get());
   ASSERT_EQ(refCount, 1);
@@ -56,6 +85,28 @@ TEST(ArrayFireTensorBaseTest, AfRefCountBasic) {
   auto aNoRef = toArray(tensor);
   af_get_data_ref_count(&refCount, aNoRef.get());
   ASSERT_EQ(refCount, 2);
+}
+
+TEST(ArrayFireTensorBaseTest, BackendInterop) {
+  // TODO: test toTensorBackend here since we know we have a backend available;
+  // design a test that tests with mulitple backends once available
+  auto a = fl::rand({10, 12});
+  ASSERT_EQ(a.backendType(), TensorBackendType::ArrayFire);
+  auto b = a;
+  auto t = fl::toTensorType<ArrayFireTensor>(std::move(a));
+  ASSERT_EQ(t.backendType(), TensorBackendType::ArrayFire);
+  ASSERT_TRUE(allClose(b, t));
+}
+
+TEST(ArrayFireTensorBaseTest, withTensorType) {
+  // TODO: test with here since we know we have a backend available;
+  // design a test that tests with mulitple backends once available
+  Tensor t;
+  fl::withTensorType<ArrayFireTensor>([&t]() {
+    t = fl::full({5, 5}, 6.);
+    t += 1;
+  });
+  ASSERT_TRUE(allClose(t, fl::full({5, 5}, 7.)));
 }
 
 TEST(ArrayFireTensorBaseTest, ArrayFireAssignmentOperators) {
@@ -84,9 +135,12 @@ TEST(ArrayFireTensorBaseTest, ArrayFireAssignmentOperators) {
 }
 
 TEST(ArrayFireTensorBaseTest, BinaryOperators) {
-  auto a = toTensor<ArrayFireTensor>(af::constant(1, {2, 2}));
-  auto b = toTensor<ArrayFireTensor>(af::constant(2, {2, 2}));
-  auto c = toTensor<ArrayFireTensor>(af::constant(3, {2, 2}));
+  auto a =
+      toTensor<ArrayFireTensor>(af::constant(1, {2, 2}), /* numDims = */ 2);
+  auto b =
+      toTensor<ArrayFireTensor>(af::constant(2, {2, 2}), /* numDims = */ 2);
+  auto c =
+      toTensor<ArrayFireTensor>(af::constant(3, {2, 2}), /* numDims = */ 2);
 
   ASSERT_TRUE(allClose(toArray(a == b), (toArray(a) == toArray(b))));
   ASSERT_TRUE(allClose((a == b), eq(a, b)));
@@ -140,7 +194,7 @@ TEST(ArrayFireTensorBaseTest, rand) {
 
 TEST(ArrayFireTensorBaseTest, amin) {
   auto a = fl::rand({3, 3});
-  ASSERT_EQ(fl::amin<float>(a), af::min<float>(toArray(a)));
+  ASSERT_EQ(fl::amin(a).scalar<float>(), af::min<float>(toArray(a)));
   ASSERT_TRUE(allClose(
       toArray(fl::amin(a, {0})),
       fl::detail::condenseIndices(af::min(toArray(a), 0))));
@@ -148,7 +202,7 @@ TEST(ArrayFireTensorBaseTest, amin) {
 
 TEST(ArrayFireTensorBaseTest, amax) {
   auto a = fl::rand({3, 3});
-  ASSERT_EQ(fl::amax<float>(a), af::max<float>(toArray(a)));
+  ASSERT_EQ(fl::amax(a).scalar<float>(), af::max<float>(toArray(a)));
   ASSERT_TRUE(allClose(
       toArray(fl::amax(a, {0})),
       fl::detail::condenseIndices(af::max(toArray(a), 0))));
@@ -156,10 +210,16 @@ TEST(ArrayFireTensorBaseTest, amax) {
 
 TEST(ArrayFireTensorBaseTest, sum) {
   auto a = fl::rand({3, 3});
-  ASSERT_EQ(fl::sum<float>(a), af::sum<float>(toArray(a)));
+  ASSERT_EQ(fl::sum(a).scalar<float>(), af::sum<float>(toArray(a)));
   ASSERT_TRUE(allClose(
       toArray(fl::sum(a, {0})),
       fl::detail::condenseIndices(af::sum(toArray(a), 0))));
+
+  auto b = fl::rand({5, 6, 7, 8});
+  ASSERT_NEAR(fl::sum(b).scalar<float>(), af::sum<float>(toArray(b)), 1e-3);
+  ASSERT_TRUE(allClose(
+      toArray(fl::sum(b, {1, 2})),
+      fl::detail::condenseIndices(af::sum(af::sum(toArray(b), 1), 2))));
 }
 
 TEST(ArrayFireTensorBaseTest, exp) {
@@ -202,25 +262,40 @@ TEST(ArrayFireTensorBaseTest, absolute) {
   ASSERT_TRUE(allClose(fl::abs(fl::full({3, 3}, val)), fl::full({3, 3}, -val)));
 }
 
+TEST(ArrayFireTensorBaseTest, erf) {
+  auto in = fl::rand({3, 3});
+  ASSERT_TRUE(allClose(toArray(fl::erf(in)), af::erf(toArray(in))));
+}
+
 TEST(ArrayFireTensorBaseTest, mean) {
   auto a = fl::rand({3, 50});
-  ASSERT_EQ(fl::mean<float>(a), af::mean<float>(toArray(a)));
-  ASSERT_TRUE(allClose(toArray(fl::mean(a, {0})), af::mean(toArray(a), 0)));
+  ASSERT_NEAR(fl::mean(a).scalar<float>(), af::mean<float>(toArray(a)), 1e-4);
+  ASSERT_TRUE(allClose(
+      toArray(fl::mean(a, {0})),
+      detail::condenseIndices(af::mean(toArray(a), 0))));
+}
+
+TEST(ArrayFireTensorBaseTest, median) {
+  auto a = fl::rand({3, 50});
+  ASSERT_NEAR(
+      fl::median(a).scalar<float>(), af::median<float>(toArray(a)), 1e-3);
+  ASSERT_TRUE(allClose(
+      toArray(fl::median(a, {0})),
+      detail::condenseIndices(af::median(toArray(a), 0))));
 }
 
 TEST(ArrayFireTensorBaseTest, var) {
   auto a = fl::rand({3, 3});
-  ASSERT_EQ(fl::var<float>(a), af::var<float>(toArray(a)));
+  ASSERT_EQ(fl::var(a).scalar<float>(), af::var<float>(toArray(a)));
   ASSERT_TRUE(allClose(
       toArray(fl::var(a, {0})),
-      af::var(toArray(a), AF_VARIANCE_POPULATION, 0)));
+      detail::condenseIndices(af::var(toArray(a), AF_VARIANCE_POPULATION, 0))));
   ASSERT_TRUE(allClose(
-      toArray(fl::var(a, {1}, false)),
-      af::var(toArray(a), AF_VARIANCE_POPULATION, 1)));
+      toArray(fl::var(a, {1})),
+      detail::condenseIndices(af::var(toArray(a), AF_VARIANCE_POPULATION, 1))));
   // Make sure multidimension matches computing for all
   ASSERT_FLOAT_EQ(
-      toArray(fl::var(a, {0, 1}, false)).scalar<float>(),
-      af::var<float>(toArray(a)));
+      toArray(fl::var(a)).scalar<float>(), af::var<float>(toArray(a)));
   ASSERT_FLOAT_EQ(
       toArray(fl::var(a, {0, 1}, true)).scalar<float>(),
       af::var<float>(toArray(a), AF_VARIANCE_SAMPLE));
@@ -228,8 +303,12 @@ TEST(ArrayFireTensorBaseTest, var) {
 
 TEST(ArrayFireTensorBaseTest, std) {
   auto a = fl::rand({3, 3});
-  ASSERT_TRUE(allClose(toArray(fl::std(a, {0})), af::stdev(toArray(a), 0)));
-  ASSERT_TRUE(allClose(toArray(fl::std(a, {1})), af::stdev(toArray(a), 1)));
+  ASSERT_TRUE(allClose(
+      toArray(fl::std(a, {0}, /* keepDims = */ true)),
+      af::stdev(toArray(a), 0)));
+  ASSERT_TRUE(allClose(
+      toArray(fl::std(a, {1}, /* keepDims = */ true)),
+      af::stdev(toArray(a), 1)));
   // Make sure multidimension matches computing for all
   ASSERT_FLOAT_EQ(
       toArray(fl::std(a, {0, 1})).scalar<float>(),
@@ -238,7 +317,7 @@ TEST(ArrayFireTensorBaseTest, std) {
 
 TEST(ArrayFireTensorBaseTest, norm) {
   auto a = fl::rand({3, 3});
-  ASSERT_EQ(fl::norm(a), af::norm(toArray(a)));
+  ASSERT_NEAR(fl::norm(a).scalar<float>(), af::norm(toArray(a)), 1e-4);
 }
 
 TEST(ArrayFireTensorBaseTest, tile) {
@@ -260,7 +339,8 @@ TEST(ArrayFireTensorBaseTest, transpose) {
 
   auto b = fl::rand({3, 5, 4, 8});
   ASSERT_TRUE(allClose(
-      toArray(fl::transpose(b, {2, 0, 1})), af::reorder(toArray(b), 2, 0, 1)));
+      toArray(fl::transpose(b, {2, 0, 1, 3})),
+      af::reorder(toArray(b), 2, 0, 1, 3)));
 }
 
 TEST(ArrayFireTensorBaseTest, concatenate) {

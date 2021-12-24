@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 #include "flashlight/fl/tensor/TensorBackend.h"
 #include "flashlight/fl/tensor/TensorBase.h"
@@ -20,7 +21,7 @@
 /**
  * The default tensor type in Flashlight. Currently ArrayFire.
  */
-using DefaultTensorType = fl::ArrayFireTensor;
+using DefaultTensorType_t = fl::ArrayFireTensor;
 
 /**
  * The compile time value which will be true if the default backend is
@@ -31,23 +32,32 @@ using DefaultTensorType = fl::ArrayFireTensor;
 namespace fl {
 namespace detail {
 
-/*
- * Resolve the default tensor backend based on compile-time dependencies.
- *
- * For now, ArrayFire is required. If not available, throw.
- */
-std::unique_ptr<TensorAdapterBase> getDefaultAdapter(
-    const Shape& shape /* = Shape() */,
-    fl::dtype type /* = fl::dtype::f32 */,
-    void* ptr /* = nullptr */,
-    MemoryLocation memoryLocation /* = Location::Host */) {
+DefaultTensorType& DefaultTensorType::getInstance() {
+  static DefaultTensorType instance;
+  return instance;
+}
+
+DefaultTensorType::DefaultTensorType() {
+  // Resolve the default backend in order of preference/availability
 #if FL_DEFAULT_BACKEND_COMPILE_FLAG
-  return std::make_unique<DefaultTensorType>(shape, type, ptr, memoryLocation);
+  creationFunc_ = std::make_unique<TensorCreatorImpl<DefaultTensorType_t>>();
 #else
   throw std::runtime_error(
-      "Cannot construct tensor: Flashlight built "
+      "Cannot construct DefaultTensorType singleton: Flashlight built "
       "without an available tensor backend.");
+
 #endif
+}
+
+std::unique_ptr<TensorCreator> DefaultTensorType::swap(
+    std::unique_ptr<TensorCreator> creator) noexcept {
+  std::unique_ptr<TensorCreator> old = std::move(creationFunc_);
+  creationFunc_ = std::move(creator);
+  return old;
+}
+
+const TensorCreator& DefaultTensorType::getTensorCreator() const {
+  return *creationFunc_;
 }
 
 } // namespace detail

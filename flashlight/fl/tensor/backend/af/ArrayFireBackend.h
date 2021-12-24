@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
+ * This source code is licensed under the MIT-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
@@ -20,11 +20,21 @@ namespace fl {
 class ArrayFireBackend : public TensorBackend {
   // TODO: consolidate the ArrayFire memory manager here so its global state can
   // be stored/we can reduce the number of singletons.
- public:
+
+  // Intentionally private. Only one instance should exist/it should be accessed
+  // via getInstance().
   ArrayFireBackend();
+
+ public:
+  static ArrayFireBackend& getInstance();
+
   ~ArrayFireBackend() override = default;
 
-  static ArrayFireBackend& getInstance();
+  // No copy or move construction or assignment
+  ArrayFireBackend(ArrayFireBackend&&) = delete;
+  ArrayFireBackend(const ArrayFireBackend&) = delete;
+  ArrayFireBackend& operator=(ArrayFireBackend&&) = delete;
+  ArrayFireBackend& operator=(const ArrayFireBackend&) = delete;
 
   /* -------------------------- Compute Functions -------------------------- */
   void sync() override;
@@ -40,32 +50,41 @@ class ArrayFireBackend : public TensorBackend {
 
   /* --------------------------- Tensor Operators --------------------------- */
   /******************** Tensor Creation Functions ********************/
-#define FL_FULL_FUN_BACKEND_DEF(TYPE) \
+#define AF_BACKEND_CREATE_FUN_LITERAL_DECL(TYPE)            \
+  Tensor fromScalar(TYPE value, const dtype type) override; \
   Tensor full(const Shape& dims, TYPE value, const dtype type) override;
-  FL_FULL_FUN_BACKEND_DEF(const double&);
-  FL_FULL_FUN_BACKEND_DEF(const float&);
-  FL_FULL_FUN_BACKEND_DEF(const int&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned&);
-  FL_FULL_FUN_BACKEND_DEF(const char&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned char&);
-  FL_FULL_FUN_BACKEND_DEF(const long&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned long&);
-  FL_FULL_FUN_BACKEND_DEF(const long long&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned long long&);
-  FL_FULL_FUN_BACKEND_DEF(const bool&);
-  FL_FULL_FUN_BACKEND_DEF(const short&);
-  FL_FULL_FUN_BACKEND_DEF(const unsigned short&);
-#undef FL_FULL_FUN_BACKEND_DEF
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const double&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const float&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const int&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const unsigned&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const char&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const unsigned char&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const long&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const unsigned long&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const long long&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const unsigned long long&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const bool&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const short&);
+  AF_BACKEND_CREATE_FUN_LITERAL_DECL(const unsigned short&);
+#undef AF_BACKEND_CREATE_FUN_LITERAL_DECL
 
   Tensor identity(const Dim dim, const dtype type) override;
+  Tensor arange(const Shape& shape, const Dim seqDim, const dtype type)
+      override;
+  Tensor iota(const Shape& dims, const Shape& tileDims, const dtype type)
+      override;
 
   /************************ Shaping and Indexing *************************/
   Tensor reshape(const Tensor& tensor, const Shape& shape) override;
-  Tensor transpose(const Tensor& tensor, const Shape& dims /* = {} */) override;
+  Tensor transpose(const Tensor& tensor, const Shape& axes /* = {} */) override;
   Tensor tile(const Tensor& tensor, const Shape& shape) override;
   Tensor concatenate(const std::vector<Tensor>& tensors, unsigned axis)
       override;
   Tensor nonzero(const Tensor& tensor) override;
+  Tensor pad(
+      const Tensor& input,
+      const std::vector<std::pair<int, int>>& padWidths,
+      const PadType type) override;
 
   /************************** Unary Operators ***************************/
   Tensor exp(const Tensor& tensor) override;
@@ -79,11 +98,30 @@ class ArrayFireBackend : public TensorBackend {
   Tensor tanh(const Tensor& tensor) override;
   Tensor floor(const Tensor& tensor) override;
   Tensor ceil(const Tensor& tensor) override;
+  Tensor rint(const Tensor& tensor) override;
   Tensor absolute(const Tensor& tensor) override;
+  Tensor sigmoid(const Tensor& tensor) override;
+  Tensor erf(const Tensor& tensor) override;
+  Tensor flip(const Tensor& tensor, const unsigned dim) override;
   Tensor clip(const Tensor& tensor, const Tensor& low, const Tensor& high)
       override;
   Tensor isnan(const Tensor& tensor) override;
+  Tensor isinf(const Tensor& tensor) override;
+  Tensor sign(const Tensor& tensor) override;
+  Tensor tril(const Tensor& tensor) override;
+  Tensor triu(const Tensor& tensor) override;
   Tensor where(const Tensor& condition, const Tensor& x, const Tensor& y)
+      override;
+  void topk(
+      Tensor& values,
+      Tensor& indices,
+      const Tensor& input,
+      const unsigned k,
+      const Dim axis,
+      const SortMode sortMode) override;
+  Tensor sort(const Tensor& input, const Dim axis, const SortMode sortMode)
+      override;
+  Tensor argsort(const Tensor& input, const Dim axis, const SortMode sortMode)
       override;
 
   /************************** Binary Operators ***************************/
@@ -143,26 +181,55 @@ class ArrayFireBackend : public TensorBackend {
       MatrixProperty rhsProp) override;
 
   /************************** Reductions ***************************/
-  Tensor amin(const Tensor& input, const std::vector<int>& axes) override;
-  double amin(const Tensor& input) override; // TODO: consolidate w/ above
-  Tensor amax(const Tensor& input, const std::vector<int>& axes) override;
-  double amax(const Tensor& input) override; // TODO: consolidate w/ above
-  Tensor sum(const Tensor& input, const std::vector<int>& axes) override;
-  double sum(const Tensor& input) override; // TODO: consolidate w/ above
-  Tensor mean(const Tensor& input, const std::vector<int>& axes) override;
-  double mean(const Tensor& input) override; // TODO: consolidate w/ above
-  Tensor var(const Tensor& input, const std::vector<int>& axes, const bool bias)
+  Tensor amin(const Tensor& input, const std::vector<int>& axes, bool keepDims)
       override;
-  double var(const Tensor& input, const bool bias)
-      override; // TODO: consolidate w/ above
-  Tensor std(const Tensor& input, const std::vector<int>& axes) override;
-  double norm(const Tensor& input) override;
-  Tensor countNonzero(const Tensor& input, const std::vector<int>& axes)
+  Tensor amax(const Tensor& input, const std::vector<int>& axes, bool keepDims)
       override;
-  Tensor any(const Tensor& input, const std::vector<int>& axes) override;
-  bool any(const Tensor& input) override;
-  Tensor all(const Tensor& input, const std::vector<int>& axes) override;
-  bool all(const Tensor& input) override;
+  void min(
+      Tensor& values,
+      Tensor& indices,
+      const Tensor& input,
+      const unsigned axis,
+      bool keepDims) override;
+  void max(
+      Tensor& values,
+      Tensor& indices,
+      const Tensor& input,
+      const unsigned axis,
+      bool keepDims) override;
+  Tensor sum(const Tensor& input, const std::vector<int>& axes, bool keepDims)
+      override;
+  Tensor cumsum(const Tensor& input, const unsigned axis) override;
+  Tensor argmax(const Tensor& input, const unsigned axis, bool keepDims)
+      override;
+  Tensor argmin(const Tensor& input, const unsigned axis, bool keepDims)
+      override;
+  Tensor mean(const Tensor& input, const std::vector<int>& axes, bool keepDims)
+      override;
+  Tensor median(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      bool keepDims) override;
+  Tensor var(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      const bool bias,
+      bool keepDims) override;
+  Tensor std(const Tensor& input, const std::vector<int>& axes, bool keepDims)
+      override;
+  Tensor norm(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      double p,
+      bool keepDims) override;
+  Tensor countNonzero(
+      const Tensor& input,
+      const std::vector<int>& axes,
+      bool keepDims) override;
+  Tensor any(const Tensor& input, const std::vector<int>& axes, bool keepDims)
+      override;
+  Tensor all(const Tensor& input, const std::vector<int>& axes, bool keepDims)
+      override;
 
   /************************** Utils ***************************/
   void print(const Tensor& tensor) override;
