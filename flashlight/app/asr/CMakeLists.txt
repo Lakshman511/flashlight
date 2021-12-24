@@ -83,6 +83,18 @@ target_link_libraries(fl_asr_tutorial_finetune_ctc flashlight-app-asr ${CMAKE_DL
 set_executable_output_directory(fl_asr_tutorial_inference_ctc "${FL_BUILD_BINARY_OUTPUT_DIR}/asr")
 set_executable_output_directory(fl_asr_tutorial_finetune_ctc "${FL_BUILD_BINARY_OUTPUT_DIR}/asr")
 
+#------------------------------ Prod binaries -------------------------------
+
+add_executable(fl_asr_inference_ctc ${CMAKE_CURRENT_LIST_DIR}/prod/InferenceCTC.cpp)
+add_executable(fl_asr_finetune_ctc ${CMAKE_CURRENT_LIST_DIR}/prod/FinetuneCTC.cpp)
+
+target_link_libraries(fl_asr_inference_ctc flashlight-app-asr ${CMAKE_DL_LIBS})
+target_link_libraries(fl_asr_finetune_ctc flashlight-app-asr ${CMAKE_DL_LIBS})
+
+set_executable_output_directory(fl_asr_inference_ctc "${FL_BUILD_BINARY_OUTPUT_DIR}/asr")
+set_executable_output_directory(fl_asr_finetune_ctc "${FL_BUILD_BINARY_OUTPUT_DIR}/asr")
+
+
 # --------------------------- Tools ---------------------------
 if (FL_BUILD_APP_ASR_TOOLS)
   add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/tools)

@@ -1,0 +1,23 @@
+export PATH=$PATH:/home/vit/Desktop/STT/flashlight/build/bin/asr
+
+run model
+fl_asr_inference_ctc --am_path=am_transformer_ctc_stride3_letters_300Mparams.bin --tokens_path=tokens.txt --lexicon_path=lexicon.txt --lm_path=lm_common_crawl_small_4gram_prun0-6-15_200kvocab.bin --logtostderr=true --sample_rate=16000 --beam_size=50 --beam_size_token=30 --beam_threshold=100 --lm_weight=1.5 --word_score=0
+
+tranfer-learning
+fl_asr_finetune_ctc model.bin \
+  --datadir  Data\
+  --train train.lst \
+  --valid dev:test.lst \
+  --arch arch.txt \
+  --tokens tokens.txt \
+  --lexicon assess_lexicon.txt \
+  --rundir checkpoint \
+  --lr 0.025 \
+  --netoptim sgd \
+  --momentum 0.8 \
+  --reportiters 1000 \
+  --lr_decay 100 \
+  --lr_decay_step 50 \
+  --iter 25000 \
+  --batchsize 4 \
+  --warmup 0

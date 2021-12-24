@@ -3,6 +3,9 @@ build
 release
 debug
 *.so
+# Other works
+OtherWorks
+
 
 models/ 
 
