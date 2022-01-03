@@ -547,8 +547,19 @@ int main(int argc, char** argv) {
       meters.runtime.resume();
       meters.timer.resume();
       FL_LOG_MASTER(INFO) << "Epoch " << curEpoch << " started!";
+      int batch_number = 0;
       for (auto& batch : *curTrainset) {
         ++curBatch;
+        auto* curMemMgr =
+          fl::MemoryManagerInstaller::currentlyInstalledMemoryManager();
+        if (curMemMgr) {
+          curMemMgr->signalMemoryCleanup();
+          if(batch_number%25==0){
+            curMemMgr->printInfo("Memory Manager Stats", 0 /* device id */);
+            std::cout<<"Current batch number = "<<batch_number<<std::endl;
+          }
+        }
+        batch_number++;
         double lrScheduleScale;
         if (FLAGS_lrcosine) {
           const double pi = std::acos(-1);
